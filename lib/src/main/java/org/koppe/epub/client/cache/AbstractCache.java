@@ -178,7 +178,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public void setAutoRefresh(long time, TimeUnit tu) {
+    public void setRetention(long time, TimeUnit tu) {
         this.autoRefreshTime = time;
         this.autoRefreshTimeUnit = tu;
     }

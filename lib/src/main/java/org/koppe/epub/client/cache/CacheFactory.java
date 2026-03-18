@@ -24,7 +24,7 @@ public abstract class CacheFactory {
     public static CredentialCache newDefaultCredentialCache(EpubClient client) {
         logger.info("Initialising default credential cache");
         CredentialCache cache = new CredentialCache(client);
-        cache.setAutoRefresh(15, TimeUnit.MINUTES);
+        cache.setRetention(15, TimeUnit.MINUTES);
         cache.setMaxElements(4);
 
         return cache;

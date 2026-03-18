@@ -47,7 +47,7 @@ public interface Cache<K, V> {
      * @param time Time after whcih a value should be refreshed.
      * @param tu   Time unit for the time to have elapsed before refresh.
      */
-    public void setAutoRefresh(long time, TimeUnit tu);
+    public void setRetention(long time, TimeUnit tu);
 
     /**
      * Function to refresh a cached value with a given key K
