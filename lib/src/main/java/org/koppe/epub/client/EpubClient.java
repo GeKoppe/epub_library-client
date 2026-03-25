@@ -3,17 +3,21 @@ package org.koppe.epub.client;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.koppe.epub.client.cache.Cache;
 import org.koppe.epub.client.cache.CacheType;
+import org.koppe.epub.client.cache.RequestCache;
+import org.koppe.epub.client.cache.RequestCacheEntity;
 import org.koppe.epub.client.cache.CredentialCache.CredentialCacheKeys;
 import org.koppe.epub.client.configuration.ApiEndpoints;
 import org.koppe.epub.client.dto.CredentialDto;
 import org.koppe.epub.client.dto.EpubDto;
 import org.koppe.epub.client.dto.EpubEditionDto;
+import org.koppe.epub.client.dto.PagedRequestDto;
 import org.koppe.epub.client.dto.UserDto;
 import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
@@ -156,12 +160,17 @@ public class EpubClient {
         }
         this.baseUrl = baseUrl;
         this.client = new OkHttpClient.Builder()
-                .callTimeout(10, TimeUnit.SECONDS)
+                .callTimeout(60, TimeUnit.SECONDS)
                 .connectTimeout(2, TimeUnit.SECONDS)
                 .hostnameVerifier((hostname, session) -> {
                     return session.getPeerHost().equals(hostname);
                 })
                 .build();
+
+        RequestCache rc = new RequestCache();
+        rc.setMaxElements(100);
+        rc.setRetention(100L, TimeUnit.MINUTES);
+        caches.put(CacheType.REQUEST, rc);
     }
 
     /**
@@ -313,9 +322,11 @@ public class EpubClient {
      * @return Session credentials
      * @throws ApiCallException
      * @throws SessionExpiredException
+     * @throws IllegalArgumentException Thrown if username or password are not
+     *                                  given.
      */
     public @Nullable CredentialDto login(String username, String password)
-            throws ApiCallException, SessionExpiredException {
+            throws ApiCallException, SessionExpiredException, IllegalArgumentException {
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
             logger.warn("Missing user name or password, cannot login");
             throw new IllegalArgumentException("Username or password missing");
@@ -325,7 +336,7 @@ public class EpubClient {
         UserDto user = new UserDto();
         user.setName(username);
         user.setPassword(password);
-        cacheValue(CacheType.CREDENTIALS, CredentialCacheKeys.USER.getValue(), user);
+        cacheValue(CacheType.CREDENTIALS, CredentialCacheKeys.USER.getValue(), username);
         cacheValue(CacheType.CREDENTIALS, CredentialCacheKeys.PASSWORD.getValue(), password);
 
         Request request = new Request.Builder()
@@ -337,7 +348,7 @@ public class EpubClient {
 
         CredentialDto dto = null;
         try {
-            dto = executeRequest(request, CredentialDto.class);
+            dto = executeRequest(request, CredentialDto.class, null, false);
         } catch (ForbiddenException | ServerErrorException | UnexpectedStatusException | BadRequestException
                 | IOException ex) {
             logger.info("Exception occurred in method call");
@@ -370,8 +381,8 @@ public class EpubClient {
      * @throws ApiCallException
      */
     public @Nullable CredentialDto login() throws CacheMissException, ApiCallException, SessionExpiredException {
-        Object user = checkCache(CacheType.CREDENTIALS, CredentialCacheKeys.USER);
-        Object password = checkCache(CacheType.CREDENTIALS, CredentialCacheKeys.PASSWORD);
+        Object user = checkCache(CacheType.CREDENTIALS, CredentialCacheKeys.USER.getValue());
+        Object password = checkCache(CacheType.CREDENTIALS, CredentialCacheKeys.PASSWORD.getValue());
 
         if (user == null || !(user instanceof String)) {
             logger.info("No user cached, cannot perform cached login");
@@ -668,37 +679,29 @@ public class EpubClient {
     private @Nullable EpubEditionDto addEpubEdition(@NotNull String jwt, long epubId, @NotNull EpubEditionDto edition)
             throws IllegalArgumentException, NotFoundException, SessionExpiredException, BadRequestException,
             ApiCallException {
-        if (edition == null || edition.getVersionName() == null || edition.getVersionName().isBlank()) {
-            logger.info("Invalid edition dto given");
-            throw new IllegalArgumentException();
+        if (epubs == null) {
+            epubs = new EpubAdapter(this);
         }
-        logger.info("Uploading new epub edition");
-        Request.Builder builder = new Request.Builder()
-                .url(String.format("%s/epubs/%s/editions", this.baseUrl, (Long) epubId))
-                .post(RequestBody.create(mapper.writeValueAsString(edition), APPLICATION_JSON));
-        addHeaders(builder, jwt, APPLICATION_JSON_STRING, APPLICATION_JSON_STRING);
+        return epubs.addEpubEdition(jwt, epubId, edition);
+    }
 
-        EpubEditionDto dto = null;
-        try {
-            dto = executeRequest(builder.build(), EpubEditionDto.class);
-        } catch (ForbiddenException
-                | ServerErrorException | UnexpectedStatusException | IOException e) {
-            throw new ApiCallException("", e);
-        } catch (NotFoundException ex) {
-            logger.info("Invalid epub id given");
-            throw ex;
-        } catch (SessionExpiredException ex) {
-            throw ex;
-        } catch (BadRequestException ex) {
-            throw ex;
-        }
+    // #region get all epubs
+    public @Nullable PagedRequestDto<EpubDto> getAllEpubs(@NotNull String username, @NotNull String password,
+            @Nullable HttpQuery query) throws ApiCallException, SessionExpiredException {
+        return getAllEpubs(getNewJwt(username, password), query);
+    }
 
-        if (dto == null) {
-            logger.info("Could not upload edition");
-            return null;
-        }
+    public @Nullable PagedRequestDto<EpubDto> getAllEpubs(@Nullable HttpQuery query)
+            throws CacheMissException, ApiCallException, SessionExpiredException {
+        return getAllEpubs(getCurrentJwt(), query);
+    }
 
-        return dto;
+    private @Nullable PagedRequestDto<EpubDto> getAllEpubs(@NotNull String jwt,
+            @Nullable HttpQuery query) throws ApiCallException {
+        if (epubs == null)
+            epubs = new EpubAdapter(this);
+
+        return epubs.getEpubsPaged(jwt, query);
     }
 
     // #region register cache
@@ -706,11 +709,15 @@ public class EpubClient {
      * Adds a new cache type to the clients internal caches, if such a cache type is
      * not already registered.
      * 
-     * @param type  Type of the cache to register
-     * @param cache Cache to register
+     * @param type      Type of the cache to register
+     * @param cache     Cache to register
+     * @param overwrite If true, existing cache with given type is overwritten.
      */
-    public final void registerCache(@NotNull CacheType type, @NotNull Cache<?, ?> cache) {
-        caches.putIfAbsent(type, cache);
+    public final void registerCache(@NotNull CacheType type, @NotNull Cache<?, ?> cache, boolean overwrite) {
+        if (!overwrite)
+            caches.putIfAbsent(type, cache);
+        else
+            caches.put(type, cache);
     }
 
     // #region add headers
@@ -791,10 +798,16 @@ public class EpubClient {
      * @throws IOException               If the request could not be executed due to
      *                                   an io exception
      */
-    protected <T> T executeRequest(@NotNull Request request, @NotNull Class<T> type)
+    protected <T> T executeRequest(@NotNull Request request, @NotNull Class<T> type, @Nullable HttpQuery query,
+            boolean cacheRequest)
             throws SessionExpiredException, BadRequestException, ForbiddenException, NotFoundException,
             ServerErrorException, UnexpectedStatusException, IOException {
         T dto = null;
+
+        if (cacheRequest) {
+            cacheReqeuest(request, type, query);
+        }
+
         try (Response response = client.newCall(request).execute()) {
             int responseCode = response.code();
             switch (responseCode) {
@@ -833,10 +846,207 @@ public class EpubClient {
         return dto;
     }
 
+    // #region execute request paged
+    /**
+     * Executes the given request and returns the expected type.
+     * 
+     * @param <T>     expected type of the response body
+     * @param request Request to be executed
+     * @param type    Expected type of the request body
+     * @return The response body or null, if the server answered with 204
+     * @throws SessionExpiredException   If the server answered with 401
+     * @throws BadRequestException       If the server answered with 400
+     * @throws ForbiddenException        If the server answered with 403
+     * @throws NotFoundException         If the server answered with 404
+     * @throws ServerErrorException      If the server answered with 500
+     * @throws UnexpectedStatusException If the server answered with any status not
+     *                                   previously defined
+     * @throws IOException               If the request could not be executed due to
+     *                                   an io exception
+     */
+    protected <T> PagedRequestDto<T> executeRequestPaged(@NotNull Request request, @NotNull Class<T> type,
+            @Nullable HttpQuery query,
+            boolean cacheRequest)
+            throws SessionExpiredException, BadRequestException, ForbiddenException, NotFoundException,
+            ServerErrorException, UnexpectedStatusException, IOException {
+        PagedRequestDto<T> dto = null;
+
+        if (cacheRequest) {
+            cacheReqeuest(request, type, query);
+        }
+
+        try (Response response = client.newCall(request).execute()) {
+            int responseCode = response.code();
+            switch (responseCode) {
+                case 200:
+                    logger.info("Request successful parsing body");
+                    String body = response.body().string();
+                    dto = mapper.readValue(body,
+                            mapper.getTypeFactory().constructParametricType(PagedRequestDto.class, EpubDto.class));
+                    break;
+                case 204:
+                    logger.info("No content");
+                    return null;
+                case 400:
+                    logger.info("Bad request");
+                    throw new BadRequestException();
+                case 401:
+                    logger.info("Session expired");
+                    throw new SessionExpiredException();
+                case 403:
+                    logger.info("Action forbidden");
+                    throw new ForbiddenException();
+                case 404:
+                    logger.info("Not found");
+                    throw new NotFoundException();
+                case 500:
+                    logger.info("Server error");
+                    throw new ServerErrorException();
+                default:
+                    logger.info("Unexpected status received");
+                    throw new UnexpectedStatusException();
+            }
+        } catch (IOException e) {
+            logger.info("Exception occurred during api call", e);
+            throw e;
+        }
+
+        return dto;
+    }
+
+    // #region redo request
+    /**
+     * Redoes exactly the request associated with given request guid
+     * 
+     * @param requestGuid
+     * @return
+     * @throws SessionExpiredException
+     * @throws BadRequestException
+     * @throws ForbiddenException
+     * @throws NotFoundException
+     * @throws ServerErrorException
+     * @throws UnexpectedStatusException
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
+    public Object redoRequest(@NotNull String requestGuid) throws SessionExpiredException, BadRequestException,
+            ForbiddenException, NotFoundException, ServerErrorException, UnexpectedStatusException, IOException,
+            IllegalArgumentException {
+        if (requestGuid == null || requestGuid.isBlank()) {
+            logger.info("No request guid given");
+            throw new IllegalArgumentException();
+        }
+        RequestCacheEntity e = ((RequestCache) caches.get(CacheType.REQUEST)).getValue(requestGuid);
+        if (e == null) {
+            return null;
+        }
+        return executeRequest(e.getRequest(), e.getExpectedResponse(), e.getQuery(), false);
+    }
+
+    // #region next page
+    /**
+     * Executes the cached request for the given request guid and gets the next
+     * page. Only works for paged requests.
+     * 
+     * @param <T>                  Expected response type
+     * @param requestGuid          Guid of the request for which to get the next
+     *                             page. Last request guid can be retrieved with
+     *                             {@link EpubClient#getLastRequestGuid()}.
+     * @param expectedResponseType Type of the expected response
+     * @return Response from the api or null, if the request is not paged.
+     * @throws SessionExpiredException   Thrown if session has expired
+     * @throws BadRequestException       Thrown if server returned 400
+     * @throws ForbiddenException        Thrown if server returned 403
+     * @throws NotFoundException         Thrown if server returned 404
+     * @throws ServerErrorException      Thrown if server returned 500
+     * @throws UnexpectedStatusException Thrown if server returned a status, that
+     *                                   was not expected by the client.
+     * @throws IOException               If a network error occurred
+     */
+    public @Nullable <T> PagedRequestDto<T> nextPage(@NotNull String requestGuid,
+            @NotNull Class<T> expectedResponseType)
+            throws SessionExpiredException, BadRequestException, ForbiddenException, NotFoundException,
+            ServerErrorException, UnexpectedStatusException, IOException {
+        RequestCacheEntity e = ((RequestCache) caches.get(CacheType.REQUEST)).getValue(requestGuid);
+        if (!e.isPaged()) {
+            logger.info("Trying to get next page for a non-paged request");
+            return null;
+        }
+        HttpQuery q = e.getQuery();
+        Integer page = q.get("page", Integer.class);
+        page++;
+        q.overwrite("page", page);
+        return executeRequestPaged(
+                e.getRequest().newBuilder().url(e.getBaseUrl() + q.toQueryString()).get().build(), expectedResponseType,
+                q, true);
+    }
+
+    // #region cache request
+    /**
+     * Caches the given request.
+     * 
+     * @param <T>              Type of body expected from the request
+     * @param request          Request to be cached
+     * @param expectedResponse Expected response type
+     * @param query            Http query
+     * @return Request guid
+     */
+    private String cacheReqeuest(@NotNull Request request, @NotNull Class<?> expectedResponse,
+            @Nullable HttpQuery query) {
+        String baseUrl = request.url().toString();
+        RequestCacheEntity entity = new RequestCacheEntity();
+
+        if (baseUrl.indexOf("?") != -1) {
+            logger.info("Removing query from url");
+            baseUrl = baseUrl.substring(0, baseUrl.indexOf("?"));
+        }
+
+        entity.setBaseUrl(baseUrl);
+        entity.setQuery(query);
+        entity.setRequestGuid(UUID.randomUUID().toString());
+        entity.setExpectedResponse(expectedResponse);
+        entity.setRequest(request);
+
+        if (query != null) {
+            Object page = query.get("page");
+            if (page != null) {
+                entity.setPage((Integer) page);
+                entity.setPaged(true);
+                entity.setPageSize(query.exists("page_size") ? query.get("page_size", Integer.class) : 1000);
+            }
+        }
+
+        cacheValue(CacheType.REQUEST, entity.getRequestGuid(), entity);
+        return entity.getRequestGuid();
+    }
+
+    // #region get last request guid
+    /**
+     * Returns guid of the last executed reqeuest.
+     * 
+     * @return Guid of the last executed request
+     */
+    public String getLastRequestGuid() {
+        return ((RequestCache) caches.get(CacheType.REQUEST)).getNewest().getRequestGuid();
+    }
+
+    // #region client
+    /**
+     * Returns the http client of the current epub client. Used by the adapters so
+     * every adapter uses the exakt same client.
+     * 
+     * @return Http client
+     */
     protected final OkHttpClient client() {
         return this.client;
     }
 
+    // #region url
+    /**
+     * Returns base url of the epub api
+     * 
+     * @return base url of the epub api
+     */
     protected final String url() {
         return this.baseUrl;
     }

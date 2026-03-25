@@ -1,5 +1,6 @@
 package org.koppe.epub.client.cache;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.koppe.epub.client.exceptions.CachingException;
@@ -74,6 +75,8 @@ public interface Cache<K, V> {
      *                          threads accessing the same cache and modifiying it.
      */
     public V removeFromCache(K key) throws CachingException;
+
+    public Map<K, V> getAll();
 
     /**
      * Functional interface. Provides the means for a cache to auto refresh.

@@ -74,14 +74,13 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
             return null;
         }
 
-        CachedValue<V> cached = new CachedValue<>();
         try {
             setValue(key, newVal);
         } catch (CachingException ex) {
             return null;
         }
 
-        return cached;
+        return cache.get(key);
     }
 
     /**
@@ -287,5 +286,44 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
          * Time the value has been added
          */
         private LocalDateTime addedAt;
+    }
+
+    @Override
+    public Map<K, V> getAll() {
+        Map<K, V> all = new HashMap<>();
+        for (K x : cache.keySet()) {
+            all.put(x, cache.get(x).getValue());
+        }
+        return all;
+    }
+
+    public V getNewest() {
+        K k = null;
+        for (K x : cache.keySet()) {
+            if (k == null) {
+                k = x;
+                continue;
+            }
+            if (cache.get(x).getAddedAt().isAfter(cache.get(k).getAddedAt())) {
+                k = x;
+            }
+        }
+
+        return cache.get(k).getValue();
+    }
+
+    public V getOldest() {
+        K k = null;
+        for (K x : cache.keySet()) {
+            if (k == null) {
+                k = x;
+                continue;
+            }
+            if (cache.get(x).getAddedAt().isBefore(cache.get(k).getAddedAt())) {
+                k = x;
+            }
+        }
+
+        return cache.get(k).getValue();
     }
 }

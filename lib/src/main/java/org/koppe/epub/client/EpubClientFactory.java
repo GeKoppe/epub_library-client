@@ -54,7 +54,7 @@ public final class EpubClientFactory {
     public static final EpubClient newCredentialCacheClient(String baseUrl) {
         EpubClient client = newDefaultClient(baseUrl);
         CredentialCache cache = CacheFactory.newDefaultCredentialCache(client);
-        client.registerCache(CacheType.CREDENTIALS, cache);
+        client.registerCache(CacheType.CREDENTIALS, cache, true);
         return client;
     }
 
@@ -72,7 +72,7 @@ public final class EpubClientFactory {
 
         for (CacheType t : cacheTypes) {
             Cache<?, ?> cache = CacheFactory.newDefaultCacheForType(t, client);
-            client.registerCache(t, cache);
+            client.registerCache(t, cache, true);
         }
 
         return client;

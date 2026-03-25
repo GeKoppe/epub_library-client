@@ -27,6 +27,11 @@ import lombok.NoArgsConstructor;
  */
 @NoArgsConstructor
 public class EpubQueryBuilder extends AbstractQueryBuilder {
+
+    public static EpubQueryBuilder newInstance() {
+        return new EpubQueryBuilder();
+    }
+
     /**
      * Signalises whether editions should be returned by the api when getting epubs.
      * 

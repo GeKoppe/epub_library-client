@@ -1,11 +1,14 @@
 package org.koppe.epub.client;
 
 import java.io.IOException;
+import java.util.concurrent.Executors;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.koppe.epub.client.cache.CacheType;
 import org.koppe.epub.client.dto.EpubDto;
+import org.koppe.epub.client.dto.EpubEditionDto;
+import org.koppe.epub.client.dto.PagedRequestDto;
 import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
 import org.koppe.epub.client.exceptions.ForbiddenException;
@@ -13,6 +16,7 @@ import org.koppe.epub.client.exceptions.NotFoundException;
 import org.koppe.epub.client.exceptions.ServerErrorException;
 import org.koppe.epub.client.exceptions.SessionExpiredException;
 import org.koppe.epub.client.exceptions.UnexpectedStatusException;
+import org.koppe.epub.client.http.EpubQueryBuilder;
 import org.koppe.epub.client.http.HttpQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +86,7 @@ class EpubAdapter {
         EpubDto dto = null;
         logger.info("Executing request");
         try {
-            dto = client.executeRequest(request, EpubDto.class);
+            dto = client.executeRequest(request, EpubDto.class, null, true);
         } catch (NotFoundException | ForbiddenException | ServerErrorException | UnexpectedStatusException
                 | BadRequestException
                 | IOException ex) {
@@ -132,7 +136,7 @@ class EpubAdapter {
         EpubDto dto = null;
 
         try {
-            dto = client.executeRequest(request, EpubDto.class);
+            dto = client.executeRequest(request, EpubDto.class, null, true);
         } catch (ForbiddenException | ServerErrorException | UnexpectedStatusException | BadRequestException
                 | IOException ex) {
             logger.info("Exception occurred in method call");
@@ -179,6 +183,7 @@ class EpubAdapter {
             logger.info("Found epub in cache");
             return (EpubDto) cached;
         }
+
         logger.info("Epub with id {} not in cache, calling api", epubId);
 
         Request.Builder builder = new Request.Builder()
@@ -190,7 +195,7 @@ class EpubAdapter {
 
         EpubDto dto = null;
         try {
-            dto = client.executeRequest(request, EpubDto.class);
+            dto = client.executeRequest(request, EpubDto.class, query, true);
         } catch (ForbiddenException | ServerErrorException | UnexpectedStatusException | BadRequestException
                 | IOException ex) {
             logger.info("Exception occurred in method call");
@@ -207,6 +212,113 @@ class EpubAdapter {
             logger.info("Could not retrieve epub");
             return null;
         }
+        client.cacheValue(CacheType.EPUBS, (Long) epubId, dto);
         return dto;
+    }
+
+    // #region add epub edition
+    /**
+     * Adds the given edition to epub with given id.
+     * 
+     * @param jwt     Session token
+     * @param epubId  Id of the epub
+     * @param edition Edition to add to the epub
+     * @return Added edition or null, if edition could not be added
+     * @throws IllegalArgumentException If no username, password, edition or
+     *                                  edition.versionName are given
+     * @throws NotFoundException        If no epub with given id exists
+     * @throws SessionExpiredException  If the session has expired
+     * @throws BadRequestException      If the given edition is invalid
+     * @throws ApiCallException         General api error
+     */
+    protected @Nullable EpubEditionDto addEpubEdition(@NotNull String jwt, long epubId, @NotNull EpubEditionDto edition)
+            throws IllegalArgumentException, NotFoundException, SessionExpiredException, BadRequestException,
+            ApiCallException {
+        if (edition == null || edition.getVersionName() == null || edition.getVersionName().isBlank()) {
+            logger.info("Invalid edition dto given");
+            throw new IllegalArgumentException();
+        }
+        logger.info("Uploading new epub edition");
+        Request.Builder builder = new Request.Builder()
+                .url(String.format("%s/epubs/%s/editions", client.url(), "" + epubId))
+                .post(RequestBody.create(mapper.writeValueAsString(edition), EpubClient.APPLICATION_JSON));
+        client.addHeaders(builder, jwt, EpubClient.APPLICATION_JSON_STRING, EpubClient.APPLICATION_JSON_STRING);
+
+        EpubEditionDto dto = null;
+        try {
+            dto = client.executeRequest(builder.build(), EpubEditionDto.class, null, true);
+        } catch (ForbiddenException
+                | ServerErrorException | UnexpectedStatusException | IOException e) {
+            throw new ApiCallException("", e);
+        } catch (NotFoundException ex) {
+            logger.info("Invalid epub id given");
+            throw ex;
+        } catch (SessionExpiredException ex) {
+            throw ex;
+        } catch (BadRequestException ex) {
+            throw ex;
+        }
+
+        if (dto == null) {
+            logger.info("Could not upload edition");
+            return null;
+        }
+
+        return dto;
+    }
+
+    /**
+     * Queries all epubs in the system. If no query is given, page is set to 0 and
+     * pagesize is set to 1000.
+     * 
+     * @param jwt   JWT for querying the api
+     * @param query Http query
+     * @return All epubs matching the specifications
+     * @throws ApiCallException If an error occurred while querying the api
+     */
+    protected @Nullable PagedRequestDto<EpubDto> getEpubsPaged(@NotNull String jwt, @Nullable HttpQuery query)
+            throws ApiCallException {
+        if (jwt == null || jwt.isBlank()) {
+            logger.info("No jwt given");
+            throw new IllegalArgumentException("Jwt missing");
+        }
+        logger.info("Querying all epubs");
+
+        if (query == null) {
+            query = new EpubQueryBuilder().page(0).pageSize(1000).build();
+        }
+        if (query.get("page") == null) {
+            query.overwrite("page", (Integer) 0);
+        }
+        Request.Builder builder = new Request.Builder()
+                .url(String.format("%s/epubs%s", client.url(), query.toQueryString())).get();
+        client.addHeaders(builder, jwt, EpubClient.APPLICATION_JSON_STRING, EpubClient.APPLICATION_JSON_STRING);
+
+        PagedRequestDto<EpubDto> result = null;
+        try {
+            result = client.executeRequestPaged(builder.build(), EpubDto.class, query, true);
+            logger.info("Successfully called the api");
+        } catch (Exception ex) {
+            logger.info("Exception occurred during api call", ex);
+            throw new ApiCallException("", ex);
+        }
+
+        if (result == null) {
+            logger.info("No result retrieved from api");
+            return null;
+        }
+
+        final PagedRequestDto<EpubDto> finalrResult = result;
+        Executors.newFixedThreadPool(1).submit(() -> {
+            logger.info("Caching results of paged request in different thread");
+            if (finalrResult.getContent() != null) {
+                logger.info("Trying to cache result content");
+                for (var x : finalrResult.getContent()) {
+                    client.cacheValue(CacheType.EPUBS, x.getId(), x);
+                }
+            }
+        });
+
+        return result;
     }
 }

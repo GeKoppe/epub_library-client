@@ -24,7 +24,6 @@ public class EpubEditionDto {
     @Include
     @lombok.ToString.Include
     private Long id;
-
     @Include
     @lombok.ToString.Include
     private String versionName;

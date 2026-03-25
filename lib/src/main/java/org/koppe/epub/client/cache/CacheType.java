@@ -9,6 +9,7 @@ public enum CacheType {
     EPUBS(CredentialDto.class),
     AUTHORS(CredentialDto.class),
     GENRES(CredentialDto.class),
+    REQUEST(RequestCacheEntity.class),
     TAGS(CredentialDto.class);
 
     @Getter

@@ -1,5 +1,6 @@
 package org.koppe.epub.client.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.EqualsAndHashCode.Include;
 import lombok.Getter;
@@ -11,6 +12,7 @@ import lombok.ToString;
  * Represents a single session.
  */
 @RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)

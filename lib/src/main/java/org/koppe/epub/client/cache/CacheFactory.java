@@ -30,6 +30,10 @@ public abstract class CacheFactory {
         return cache;
     }
 
+    public static EpubCache newDefaultEpubCache() {
+        return new EpubCache();
+    }
+
     /**
      * Creates a new default cache instance for the given type. Calls the respective
      * default factory method, e.g. for {@link CacheType#CREDENTIALS} the method
@@ -45,6 +49,8 @@ public abstract class CacheFactory {
         switch (type) {
             case CREDENTIALS:
                 return newDefaultCredentialCache(client);
+            case EPUBS:
+                return newDefaultEpubCache();
             default:
                 return null;
         }

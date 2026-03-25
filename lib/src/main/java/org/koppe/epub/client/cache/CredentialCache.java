@@ -105,7 +105,7 @@ public class CredentialCache extends AbstractCache<String, String> {
         JWT("jwt"),
         REFRESH("refresh"),
         USER("user"),
-        PASSWORD("passwor");
+        PASSWORD("password");
 
         private final String value;
     }
