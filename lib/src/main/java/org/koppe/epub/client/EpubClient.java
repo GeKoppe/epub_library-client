@@ -697,7 +697,7 @@ public class EpubClient {
     }
 
     private @Nullable PagedRequestDto<EpubDto> getAllEpubs(@NotNull String jwt,
-            @Nullable HttpQuery query) throws ApiCallException {
+            @Nullable HttpQuery query) throws ApiCallException, SessionExpiredException {
         if (epubs == null)
             epubs = new EpubAdapter(this);
 
