@@ -1,9 +1,11 @@
 package org.koppe.epub.client;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 import org.koppe.epub.client.dto.CredentialDto;
 import org.koppe.epub.client.dto.EpubDto;
+import org.koppe.epub.client.dto.EpubEditionDto;
 
 import lombok.Getter;
 
@@ -19,4 +21,8 @@ class DtoRecord {
 			null, null, null, null);
 	static final EpubDto epub2 = new EpubDto(2L, "epub 2", LocalDate.of(2000, 1, 1), LocalDate.of(2020, 1, 1), null,
 			null, null, null, null);
+
+	static final EpubEditionDto edition1 = new EpubEditionDto(1L, "edition 1", 1, UUID.randomUUID().toString(),
+			UUID.randomUUID().toString(), null);
+			
 }

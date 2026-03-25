@@ -64,7 +64,7 @@ public class EpubQueryBuilder extends AbstractQueryBuilder {
     }
 
     public EpubQueryBuilder uploadedAfter(LocalDate date) {
-        getBuilder().addParam(LocalDate.class, "uploaded_before", date);
+        getBuilder().addParam(LocalDate.class, "uploaded_after", date);
         return this;
     }
 

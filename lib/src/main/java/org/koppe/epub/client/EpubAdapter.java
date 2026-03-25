@@ -234,6 +234,11 @@ class EpubAdapter {
     protected @Nullable EpubEditionDto addEpubEdition(@NotNull String jwt, long epubId, @NotNull EpubEditionDto edition)
             throws IllegalArgumentException, NotFoundException, SessionExpiredException, BadRequestException,
             ApiCallException {
+
+        if (jwt == null || jwt.isBlank()) {
+            logger.info("No jwt given");
+            throw new IllegalArgumentException();
+        }
         if (edition == null || edition.getVersionName() == null || edition.getVersionName().isBlank()) {
             logger.info("Invalid edition dto given");
             throw new IllegalArgumentException();
@@ -267,6 +272,7 @@ class EpubAdapter {
         return dto;
     }
 
+    // #region get epubs paged
     /**
      * Queries all epubs in the system. If no query is given, page is set to 0 and
      * pagesize is set to 1000.
@@ -274,10 +280,11 @@ class EpubAdapter {
      * @param jwt   JWT for querying the api
      * @param query Http query
      * @return All epubs matching the specifications
-     * @throws ApiCallException If an error occurred while querying the api
+     * @throws ApiCallException        If an error occurred while querying the api
+     * @throws SessionExpiredException If the session has expired
      */
     protected @Nullable PagedRequestDto<EpubDto> getEpubsPaged(@NotNull String jwt, @Nullable HttpQuery query)
-            throws ApiCallException {
+            throws ApiCallException, SessionExpiredException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
             throw new IllegalArgumentException("Jwt missing");
@@ -298,9 +305,13 @@ class EpubAdapter {
         try {
             result = client.executeRequestPaged(builder.build(), EpubDto.class, query, true);
             logger.info("Successfully called the api");
-        } catch (Exception ex) {
+        } catch (NotFoundException | BadRequestException | ForbiddenException | UnexpectedStatusException | IOException
+                | ServerErrorException ex) {
             logger.info("Exception occurred during api call", ex);
             throw new ApiCallException("", ex);
+        } catch (SessionExpiredException e) {
+            logger.info("Session has expired");
+            throw e;
         }
 
         if (result == null) {
