@@ -1,5 +1,8 @@
 package org.koppe.epub.client;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -11,6 +14,8 @@ import org.koppe.epub.client.dto.EpubEditionDto;
 import org.koppe.epub.client.dto.PagedRequestDto;
 import org.koppe.epub.client.dto.UserDto;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartReader;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -58,6 +63,13 @@ public class MockDispatcher extends Dispatcher {
                     switch (request.getMethod()) {
                         case "POST":
                             return addEpubEdition(request);
+                        default:
+                            return new MockResponse().setResponseCode(403);
+                    }
+                case "/epubs/upload":
+                    switch (request.getMethod()) {
+                        case "POST":
+                            return upload(request);
                         default:
                             return new MockResponse().setResponseCode(403);
                     }
@@ -179,6 +191,49 @@ public class MockDispatcher extends Dispatcher {
         response.setPageSize(Long.valueOf(pageSize));
 
         return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(response));
+    }
+
+    private MockResponse upload(RecordedRequest r) {
+        if (!r.getRequestUrl().queryParameter("upload-guid").equals("123")) {
+            return new MockResponse().setResponseCode(400);
+        }
+        String contentType = r.getHeader("Content-Type");
+        assert contentType != null;
+
+        String boundary = MediaType.parse(contentType).parameter("boundary");
+        assert boundary != null;
+
+        byte[] bytes = new byte[] {};
+        try (MultipartReader reader = new MultipartReader(r.getBody(), boundary)) {
+            MultipartReader.Part part;
+            while ((part = reader.nextPart()) != null) {
+                String disposition = part.headers().get("Content-Disposition");
+                if (disposition != null && disposition.contains("filename=")) {
+                    bytes = part.body().readByteArray();
+                }
+            }
+        } catch (IOException e) {
+            return new MockResponse().setResponseCode(400);
+        }
+
+        File tmpFile = new File(System.getProperty("java.io.tmpdir") + "/test.epub");
+        if (tmpFile.exists())
+            tmpFile.delete();
+        try {
+            tmpFile.createNewFile();
+            try (FileOutputStream fos = new FileOutputStream(tmpFile.getAbsolutePath())) {
+                fos.write(bytes);
+            }
+        } catch (IOException e) {
+            return new MockResponse().setResponseCode(500);
+        }
+
+        if (tmpFile.length() > 0) {
+            tmpFile.delete();
+            return new MockResponse().setResponseCode(200);
+        }
+
+        return new MockResponse().setResponseCode(400);
     }
 
     // #region get body

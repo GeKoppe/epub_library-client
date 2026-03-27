@@ -445,7 +445,7 @@ class EpubAdapter {
             throw new IllegalArgumentException("Missing epub file");
         }
 
-        if (!epubFile.getName().substring(epubFile.getName().lastIndexOf(".")).equals("epub")) {
+        if (!epubFile.getName().substring(epubFile.getName().lastIndexOf(".") + 1).equals("epub")) {
             logger.info("Given file is not an epub file");
             throw new IllegalFileTypeException(epubFile.getName().substring(epubFile.getName().lastIndexOf(".")), null);
         }

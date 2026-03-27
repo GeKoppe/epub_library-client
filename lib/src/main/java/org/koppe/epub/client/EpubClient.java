@@ -720,6 +720,16 @@ public class EpubClient {
         return getAllEpubs(getCurrentJwt(), query);
     }
 
+    /**
+     * Queries all epubs on the api and returns those meeting the requirements of
+     * the query.
+     * 
+     * @param jwt   Jwt for logging into the api
+     * @param query Query with requirements for the epubs to be returned.
+     * @return All epubs meeting the requirements
+     * @throws ApiCallException        General api error
+     * @throws SessionExpiredException If the session has expired
+     */
     private @Nullable PagedRequestDto<EpubDto> getAllEpubs(@NotNull String jwt,
             @Nullable HttpQuery query) throws ApiCallException, SessionExpiredException {
         if (epubs == null)
@@ -729,18 +739,61 @@ public class EpubClient {
     }
 
     // #region upload
+    /**
+     * Uploads the epub the the epub edition with the given upload guid.
+     * 
+     * @param username   Name of the user to log into the api
+     * @param password   Password of the user
+     * @param uploadGuid Upload guid of the EpubEdition. See
+     *                   {@link EpubEditionDto#getUploadGuid()}
+     * @param epubFile   File to be uploaded
+     * @throws IllegalArgumentException If one or more arguments are missing
+     * @throws IllegalFileTypeException If the given file is not a .epub file.
+     * @throws ApiCallException         General api error
+     * @throws SessionExpiredException  If the sessionhas expired
+     * @throws BadRequestException      If the request was malformed in some way.
+     */
     public void uploadEpub(String username, String password, @NotNull String uploadGuid, @NotNull File epubFile)
             throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
             BadRequestException {
         uploadEpub(getNewJwt(username, password), uploadGuid, epubFile);
     }
 
+    /**
+     * Uploads the epub the the epub edition with the given upload guid. Needs api
+     * credentials to be cached in this client.
+     * 
+     * @param uploadGuid Upload guid of the EpubEdition. See
+     *                   {@link EpubEditionDto#getUploadGuid()}
+     * @param epubFile   File to be uploaded
+     * @throws IllegalArgumentException If one or more arguments are missing
+     * @throws IllegalFileTypeException If the given file is not a .epub file.
+     * @throws ApiCallException         General api error
+     * @throws SessionExpiredException  If the sessionhas expired
+     * @throws BadRequestException      If the request was malformed in some way.
+     * @throws CacheMissException       If no credentials are stored in the clients
+     *                                  cache
+     */
     public void uploadEpub(@NotNull String uploadGuid, @NotNull File epubFile)
             throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
             BadRequestException, CacheMissException {
         uploadEpub(getCurrentJwt(), uploadGuid, epubFile);
     }
 
+    /**
+     * Uploads the epub the the epub edition with the given upload guid. Needs api
+     * credentials to be cached in this client.
+     * 
+     * @param jwt        The token to authorise with the api
+     * @param uploadGuid Upload guid of the EpubEdition. See
+     *                   {@link EpubEditionDto#getUploadGuid()}
+     * @param epubFile   File to be uploaded
+     * @throws IllegalArgumentException If one or more arguments are missing
+     * @throws IllegalFileTypeException If the given file is not a .epub file.
+     * @throws ApiCallException         General api error
+     * @throws SessionExpiredException  If the sessionhas expired
+     * @throws BadRequestException      If the request was malformed in some way.
+     */
     private void uploadEpub(@NotNull String jwt, @NotNull String uploadGuid, @NotNull File epubFile)
             throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
             BadRequestException {
