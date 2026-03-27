@@ -72,4 +72,9 @@ public class EpubQueryBuilder extends AbstractQueryBuilder {
         getBuilder().addParam(Boolean.class, "with_toc", w);
         return this;
     }
+
+    public EpubQueryBuilder uploadGuid(String uploadGuid) {
+        getBuilder().addParam(String.class, "upload-guid", uploadGuid);
+        return this;
+    }
 }

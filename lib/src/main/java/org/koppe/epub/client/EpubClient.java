@@ -1,5 +1,6 @@
 package org.koppe.epub.client;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ import org.koppe.epub.client.exceptions.BadRequestException;
 import org.koppe.epub.client.exceptions.CacheMissException;
 import org.koppe.epub.client.exceptions.CachingException;
 import org.koppe.epub.client.exceptions.ForbiddenException;
+import org.koppe.epub.client.exceptions.IllegalFileTypeException;
 import org.koppe.epub.client.exceptions.NotFoundException;
 import org.koppe.epub.client.exceptions.ServerErrorException;
 import org.koppe.epub.client.exceptions.SessionExpiredException;
@@ -686,11 +688,33 @@ public class EpubClient {
     }
 
     // #region get all epubs
+    /**
+     * Gets all epubs meeting the specifications in query. If no query is given, all
+     * are returned.
+     * 
+     * @param username Username for logging into the api
+     * @param password Password for logging into the api
+     * @param query    Query with epub requirements. Can be null
+     * @return All epubs meeting the requirements
+     * @throws ApiCallException        General api error
+     * @throws SessionExpiredException If the session has expired
+     */
     public @Nullable PagedRequestDto<EpubDto> getAllEpubs(@NotNull String username, @NotNull String password,
             @Nullable HttpQuery query) throws ApiCallException, SessionExpiredException {
         return getAllEpubs(getNewJwt(username, password), query);
     }
 
+    /**
+     * Gets all epubs meeting the specifications in query. If no query is given, all
+     * are returned.
+     * 
+     * @param query Query with epub requirements. Can be null
+     * @return All epubs meeting the requirements
+     * @throws CacheMissException      If no username or password are in the clients
+     *                                 internal cache
+     * @throws ApiCallException        General api error
+     * @throws SessionExpiredException If the session has expired
+     */
     public @Nullable PagedRequestDto<EpubDto> getAllEpubs(@Nullable HttpQuery query)
             throws CacheMissException, ApiCallException, SessionExpiredException {
         return getAllEpubs(getCurrentJwt(), query);
@@ -702,6 +726,28 @@ public class EpubClient {
             epubs = new EpubAdapter(this);
 
         return epubs.getEpubsPaged(jwt, query);
+    }
+
+    // #region upload
+    public void uploadEpub(String username, String password, @NotNull String uploadGuid, @NotNull File epubFile)
+            throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
+            BadRequestException {
+        uploadEpub(getNewJwt(username, password), uploadGuid, epubFile);
+    }
+
+    public void uploadEpub(@NotNull String uploadGuid, @NotNull File epubFile)
+            throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
+            BadRequestException, CacheMissException {
+        uploadEpub(getCurrentJwt(), uploadGuid, epubFile);
+    }
+
+    private void uploadEpub(@NotNull String jwt, @NotNull String uploadGuid, @NotNull File epubFile)
+            throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
+            BadRequestException {
+        if (epubs == null)
+            epubs = new EpubAdapter(this);
+
+        epubs.upload(jwt, uploadGuid, epubFile);
     }
 
     // #region register cache
@@ -798,7 +844,8 @@ public class EpubClient {
      * @throws IOException               If the request could not be executed due to
      *                                   an io exception
      */
-    protected <T> T executeRequest(@NotNull Request request, @NotNull Class<T> type, @Nullable HttpQuery query,
+    protected @Nullable <T> T executeRequest(@NotNull Request request, @NotNull Class<T> type,
+            @Nullable HttpQuery query,
             boolean cacheRequest)
             throws SessionExpiredException, BadRequestException, ForbiddenException, NotFoundException,
             ServerErrorException, UnexpectedStatusException, IOException {
@@ -813,6 +860,10 @@ public class EpubClient {
             switch (responseCode) {
                 case 200:
                     logger.info("Request successful parsing body");
+                    if (type.equals(Void.class)) {
+                        logger.info("Expecting void, returning");
+                        return null;
+                    }
                     String body = response.body().string();
                     dto = mapper.readValue(body, type);
                     break;
