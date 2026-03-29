@@ -3,6 +3,7 @@ package org.koppe.epub.client.cache;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -47,6 +48,10 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
      * Maximum number of elements
      */
     private int maxElements = -1;
+    /**
+     * Executor service for threaded execution
+     */
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     /**
      * Calls {@link RefreshFunction#run(Object)} of the instances refresh function
@@ -208,7 +213,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         lock.unlock();
 
         if (maxElements >= 0 && cache.size() > maxElements) {
-            Executors.newFixedThreadPool(1).submit(this::removeOldest);
+            executor.submit(this::removeOldest);
         }
     }
 
