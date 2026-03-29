@@ -1,7 +1,10 @@
 package org.koppe.epub.client;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.concurrent.Executors;
 
 import org.jetbrains.annotations.NotNull;
@@ -28,6 +31,7 @@ import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import okhttp3.Response;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -273,6 +277,9 @@ class EpubAdapter {
             return null;
         }
 
+        logger.info("Successfully added new epub edition");
+        client.cacheValue(CacheType.EDITIONS, dto.getId(), dto);
+
         return dto;
     }
 
@@ -408,7 +415,10 @@ class EpubAdapter {
             logger.info("No result returned from api");
             return null;
         }
+
         logger.info("Successfully fetched updated epub");
+        client.cacheValue(CacheType.EPUBS, result.getId(), result);
+
         return result;
     }
 
@@ -472,5 +482,208 @@ class EpubAdapter {
             logger.info("Invalid uplaod guid or file given");
             throw e;
         }
+    }
+
+    // #region download
+    /**
+     * Downloads epub or cover with given download guid into the given download
+     * directory.
+     * 
+     * @param jwt               JWT to authenticate at the api
+     * @param downloadGuid      Download guid of the epub edition. Can be retrieved
+     *                          from {@link EpubEditionDto#getDownloadGuid()}.
+     * @param downlaodDirectory Directory in which to put the downloaded epub.
+     * @param downloadCover     If set to true, the cover of the file will be
+     *                          downloaded instead of the entire epub.
+     * @return The downloaded file.
+     * @throws IllegalArgumentException  If no jwt, download guid or directory is
+     *                                   given or the directory is not a directory
+     *                                   at
+     *                                   all.
+     * @throws BadRequestException       When the server responsed with a 400,
+     *                                   meaning the download guid is invalid.
+     * @throws ServerErrorException      When the server could not provide the
+     *                                   download file.
+     * @throws SessionExpiredException
+     * @throws UnexpectedStatusException
+     */
+    protected @Nullable File download(@NotNull String jwt, @NotNull String downloadGuid,
+            @NotNull File downlaodDirectory,
+            boolean downloadCover)
+            throws IllegalArgumentException, BadRequestException, ServerErrorException, SessionExpiredException,
+            UnexpectedStatusException {
+        if (jwt == null || jwt.isBlank()) {
+            logger.info("No jwt given");
+            throw new IllegalArgumentException("Missing jwt");
+        }
+
+        if (downloadGuid == null || downloadGuid.isBlank()) {
+            logger.info("No download guid given");
+            throw new IllegalArgumentException("Missing download guid");
+        }
+
+        if (downlaodDirectory == null || !downlaodDirectory.exists() || !downlaodDirectory.isDirectory()) {
+            logger.info("Invalid download directory given");
+            throw new IllegalArgumentException("Invalid download directory");
+        }
+
+        Request.Builder builder = new Request.Builder()
+                .url(String.format("%s/epubs/download%s", client.url(),
+                        new EpubQueryBuilder().downloadGuid(downloadGuid).downloadCover(downloadCover).build()
+                                .toQueryString()))
+                .get();
+        client.addHeaders(builder, jwt, "application/octet-stream", "application/octet-stream");
+
+        logger.debug("Executing download request");
+        try (Response response = client.client().newCall(builder.build()).execute()) {
+            switch (response.code()) {
+                case 400:
+                    logger.info("Given download guid is invalid");
+                    throw new BadRequestException("Invalid download guid", null);
+                case 401:
+                    throw new SessionExpiredException();
+                case 500:
+                    logger.info("Server failed to provide download file");
+                    throw new ServerErrorException("Server could not prepare download", null);
+                default:
+                    if (response.isSuccessful())
+                        break;
+                    throw new UnexpectedStatusException();
+            }
+
+            logger.debug("Download request successful, determining file type");
+
+            File downloaded = null;
+            try {
+                downloaded = createDownloadFile(response, downlaodDirectory);
+            } catch (Exception ex) {
+                logger.info("Could not create download file due to exception", ex);
+                throw new IOException(ex);
+            }
+
+            try (InputStream is = response.body().byteStream(); OutputStream os = new FileOutputStream(downloaded)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, bytesRead);
+                }
+            }
+            return downloaded;
+        } catch (IOException ex) {
+            // TODO throw sensible exceptions
+            logger.warn("Exception occurred during the download", ex);
+            return null;
+        }
+    }
+
+    /**
+     * Creates the file for the download. Determines file name and file type from
+     * the given response, creates the new file and returns it.
+     * 
+     * @param response          Response of the download request.
+     * @param downloadDirectory Directory in which to put the new file.
+     * @return The newly created file
+     * @throws IllegalArgumentException If the given response is null
+     * @throws IllegalFileTypeException If no file type could be determined from the
+     *                                  response.
+     * @throws IOException              If the new file could not be created.
+     */
+    private @Nullable File createDownloadFile(@NotNull Response response, @NotNull File downloadDirectory)
+            throws IllegalArgumentException, IllegalFileTypeException, IOException {
+        String fileName = "";
+        if (response == null) {
+            logger.info("Empty response given");
+            throw new IllegalArgumentException();
+        }
+
+        String contentDisposition = response.header("Content-Disposition");
+        if (contentDisposition != null) {
+            for (String part : contentDisposition.split(";")) {
+                part = part.trim();
+                if (part.startsWith("filename=")) {
+                    fileName = part.substring("filename=".length())
+                            .replace("\"", "")
+                            .trim();
+                    break;
+                }
+            }
+        }
+
+        if (fileName == null) {
+            logger.info("Could not determine a file name, using default");
+            fileName = "epub.epub";
+        }
+
+        logger.debug("Determined file name \"" + fileName + "\"");
+        File dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName);
+
+        if (dl.exists()) {
+            int iterator = 0;
+            while (dl.exists()) {
+                iterator++;
+                if (iterator >= 1000) {
+                    throw new IOException("Too many epubs with given name downloaded");
+                }
+                dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + "(" + iterator + ")");
+            }
+        }
+        dl.createNewFile();
+
+        return dl;
+    }
+
+    // #region delete epub edition
+    /**
+     * Deletes epub edition with given id.
+     * 
+     * @param jwt       JWT to authenticate at the api
+     * @param epubId    Id of the epub the epub edition belongs to
+     * @param editionId Epub edition to be deleted
+     * @return The deleted epub edition
+     * @throws IllegalArgumentException If no jwt is given
+     * @throws SessionExpiredException  If the jwt has expired
+     * @throws ApiCallException         General exception for all unexpected api
+     *                                  responses
+     * @throws NotFoundException        If either the epub edition id or the epub
+     *                                  with the given id do not exist
+     */
+    protected @Nullable EpubEditionDto deleteEdition(@NotNull String jwt, long epubId, long editionId)
+            throws IllegalArgumentException, SessionExpiredException, ApiCallException, NotFoundException {
+        if (jwt == null || jwt.isBlank()) {
+            logger.info("Invalid jwt given");
+            throw new IllegalArgumentException("Missing jwt");
+        }
+
+        logger.info("Creating request to delete epub edition");
+
+        Request.Builder builder = new Request.Builder()
+                .url(String.format("%s/epubs/%s/editions/%s", client.url(), "" + epubId, "" + editionId))
+                .delete();
+
+        client.addHeaders(builder, jwt, EpubClient.APPLICATION_JSON_STRING, EpubClient.APPLICATION_JSON_STRING);
+        logger.info("Executing request");
+
+        EpubEditionDto deleted = null;
+        try {
+            deleted = client.executeRequest(builder.build(), EpubEditionDto.class, null, false);
+        } catch (SessionExpiredException e) {
+            logger.info("Session has expired");
+            throw e;
+        } catch (BadRequestException | ForbiddenException | UnexpectedStatusException | IOException e) {
+            logger.info("Exception occurred in call", e);
+            throw new ApiCallException(null, e);
+        } catch (NotFoundException e) {
+            logger.warn("Invalid epub or edition id given", e);
+            throw e;
+        } catch (ServerErrorException e) {
+            logger.info("Server error occured", e);
+            deleted = null;
+        }
+
+        if (deleted != null) {
+            client.removeFromCache(CacheType.EDITIONS, deleted.getId());
+        }
+
+        return deleted;
     }
 }

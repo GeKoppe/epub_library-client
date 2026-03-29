@@ -77,4 +77,30 @@ public class EpubQueryBuilder extends AbstractQueryBuilder {
         getBuilder().addParam(String.class, "upload-guid", uploadGuid);
         return this;
     }
+
+    // #region
+    /**
+     * Sets the download guid for downloading an epub or a cover.
+     * 
+     * @param downloadGuid Download guid of the epub edition, the epub or cover
+     *                     should be downloaded of.
+     * @return This builder
+     */
+    public EpubQueryBuilder downloadGuid(String downloadGuid) {
+        getBuilder().addParam(String.class, "download-guid", downloadGuid);
+        return this;
+    }
+
+    // #region download cover
+    /**
+     * Used only when using one of the download methods, otherwise ignored. If set
+     * to true, cover picture instead of epub is downloaded.
+     * 
+     * @param downloadCover If true, cover instead of epub is downloaded
+     * @return This builder
+     */
+    public EpubQueryBuilder downloadCover(boolean downloadCover) {
+        getBuilder().addParam(Boolean.class, "cover", downloadCover);
+        return this;
+    }
 }

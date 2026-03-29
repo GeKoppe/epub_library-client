@@ -284,6 +284,7 @@ public class EpubClientCommunicationTest {
                         null, false));
     }
 
+    // #region test paged
     @Test
     public void testExecuteRequestPaged() {
         server = new MockWebServer();
@@ -332,6 +333,7 @@ public class EpubClientCommunicationTest {
                         null, false));
     }
 
+    // #region test next page
     @Test
     public void testGetNextPage() {
         server.setDispatcher(new MockDispatcher());
@@ -360,6 +362,7 @@ public class EpubClientCommunicationTest {
         assertEquals(1L, (long) response.getNumber());
     }
 
+    // #region get upload
     @Test
     public void testUpload() {
         server.setDispatcher(new MockDispatcher());

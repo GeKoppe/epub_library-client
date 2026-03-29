@@ -15,6 +15,7 @@ import org.koppe.epub.client.cache.RequestCache;
 import org.koppe.epub.client.cache.RequestCacheEntity;
 import org.koppe.epub.client.cache.CredentialCache.CredentialCacheKeys;
 import org.koppe.epub.client.configuration.ApiEndpoints;
+import org.koppe.epub.client.dto.AuthorDto;
 import org.koppe.epub.client.dto.CredentialDto;
 import org.koppe.epub.client.dto.EpubDto;
 import org.koppe.epub.client.dto.EpubEditionDto;
@@ -148,6 +149,10 @@ public class EpubClient {
      * Adapter for epub operations
      */
     private EpubAdapter epubs;
+    /**
+     * Adapter for author operation
+     */
+    private AuthorAdapter authors;
 
     // #region constructors
     /**
@@ -744,8 +749,7 @@ public class EpubClient {
      * 
      * @param username   Name of the user to log into the api
      * @param password   Password of the user
-     * @param uploadGuid Upload guid of the EpubEdition. See
-     *                   {@link EpubEditionDto#getUploadGuid()}
+     * @param uploadGuid Upload guid of the EpubEdition.
      * @param epubFile   File to be uploaded
      * @throws IllegalArgumentException If one or more arguments are missing
      * @throws IllegalFileTypeException If the given file is not a .epub file.
@@ -763,8 +767,7 @@ public class EpubClient {
      * Uploads the epub the the epub edition with the given upload guid. Needs api
      * credentials to be cached in this client.
      * 
-     * @param uploadGuid Upload guid of the EpubEdition. See
-     *                   {@link EpubEditionDto#getUploadGuid()}
+     * @param uploadGuid Upload guid of the EpubEdition.
      * @param epubFile   File to be uploaded
      * @throws IllegalArgumentException If one or more arguments are missing
      * @throws IllegalFileTypeException If the given file is not a .epub file.
@@ -785,8 +788,7 @@ public class EpubClient {
      * credentials to be cached in this client.
      * 
      * @param jwt        The token to authorise with the api
-     * @param uploadGuid Upload guid of the EpubEdition. See
-     *                   {@link EpubEditionDto#getUploadGuid()}
+     * @param uploadGuid Upload guid of the EpubEdition.
      * @param epubFile   File to be uploaded
      * @throws IllegalArgumentException If one or more arguments are missing
      * @throws IllegalFileTypeException If the given file is not a .epub file.
@@ -801,6 +803,215 @@ public class EpubClient {
             epubs = new EpubAdapter(this);
 
         epubs.upload(jwt, uploadGuid, epubFile);
+    }
+
+    // #region download
+    /**
+     * Downloads the epub file or cover image of the epub edition with the given
+     * download guid.
+     * 
+     * @param username          Username to log into the api with.
+     * @param password          Password to log into the api with.
+     * @param downloadGuid      Download guid of the epub edition.
+     * @param downloadDirectory Directory into which the file should be downloaded.
+     * @param downloadCover     If set to true, the cover instead of the epub is
+     *                          downloaded.
+     * @return The downloaded file
+     * @throws IllegalArgumentException  If one of the arguments required is missing
+     * @throws BadRequestException       If the download guid is invalid.
+     * @throws ServerErrorException      If the server failed in providing the
+     *                                   download.
+     * @throws ApiCallException          General api call exception.
+     * @throws SessionExpiredException   If the client could not authenticate at the
+     *                                   api.
+     * @throws UnexpectedStatusException If the server responded with an unexpected
+     *                                   status.
+     */
+    public @Nullable File download(@NotNull String username, @NotNull String password, @NotNull String downloadGuid,
+            @NotNull File downloadDirectory, boolean downloadCover) throws IllegalArgumentException,
+            BadRequestException, ServerErrorException, ApiCallException, SessionExpiredException,
+            UnexpectedStatusException {
+        return download(getNewJwt(username, password), downloadGuid, downloadDirectory, downloadCover);
+    }
+
+    /**
+     * Downloads the epub file or cover image of the epub edition with the given
+     * download guid. Requires cached login data.
+     * 
+     * @param downloadGuid      Download guid of the epub edition.
+     * @param downloadDirectory Directory into which the file should be downloaded.
+     * @param downloadCover     If set to true, the cover instead of the epub is
+     *                          downloaded.
+     * @return The downloaded file
+     * @throws IllegalArgumentException  If one of the arguments required is missing
+     * @throws BadRequestException       If the download guid is invalid.
+     * @throws ServerErrorException      If the server failed in providing the
+     *                                   download.
+     * @throws ApiCallException          General api call exception.
+     * @throws SessionExpiredException   If the client could not authenticate at the
+     *                                   api.
+     * @throws CacheMissException        If no credentials are stored in the clients
+     *                                   cache.
+     * @throws UnexpectedStatusException If the server responded with an unexpected
+     *                                   status
+     */
+    public @Nullable File download(@NotNull String downloadGuid, @NotNull File downloadDirectory,
+            boolean downloadCover) throws IllegalArgumentException, BadRequestException, ServerErrorException,
+            CacheMissException, ApiCallException, SessionExpiredException, UnexpectedStatusException {
+        return download(getCurrentJwt(), downloadGuid, downloadDirectory, downloadCover);
+    }
+
+    /**
+     * Downloads the epub file or cover image of the epub edition with the given
+     * download guid.
+     * 
+     * @param username          Username to log into the api with.
+     * @param password          Password to log into the api with.
+     * @param downloadGuid      Download guid of the epub edition.
+     * @param downloadDirectory Directory into which the file should be downloaded.
+     * @param downloadCover     If set to true, the cover instead of the epub is
+     *                          downloaded.
+     * @return The downloaded file
+     * @throws IllegalArgumentException  If one of the arguments required is missing
+     * @throws BadRequestException       If the download guid is invalid.
+     * @throws ServerErrorException      If the server failed in providing the
+     *                                   download.
+     * @throws SessionExpiredException   If the jwt is invalid
+     * @throws UnexpectedStatusException If the server responded with an unexpected
+     *                                   status.
+     */
+    private final @Nullable File download(@NotNull String jwt, @NotNull String downloadGuid,
+            @NotNull File downloadDirectory, boolean downloadCover)
+            throws IllegalArgumentException, BadRequestException, ServerErrorException, SessionExpiredException,
+            UnexpectedStatusException {
+
+        if (epubs == null) {
+            epubs = new EpubAdapter(this);
+        }
+        return epubs.download(jwt, downloadGuid, downloadDirectory, downloadCover);
+    }
+
+    // #region delete epub edition
+    /**
+     * Deletes the epub edition with the given edition id
+     * 
+     * @param username  User name to authenticate at the api
+     * @param password  Password to authenticate at the api
+     * @param epubId    Id of the epub the edition belongs to
+     * @param editionId Id of the edition to be deleted
+     * @return The deleted epub edition
+     * @throws ApiCallException         If the api returned an unexpected status
+     * @throws SessionExpiredException  If the credentials are incorrect
+     * @throws IllegalArgumentException If username or password are not given
+     * @throws NotFoundException        If either the epub id or edition id do not
+     *                                  exist
+     */
+    public @Nullable EpubEditionDto deleteEpubEdition(@NotNull String username, @NotNull String password, long epubId,
+            long editionId)
+            throws ApiCallException, SessionExpiredException, IllegalArgumentException, NotFoundException {
+        return deleteEpubEdition(getNewJwt(username, password), epubId, editionId);
+    }
+
+    /**
+     * Deletes the epub edition with the given edition id. Credentials must be
+     * cached in the client.
+     * 
+     * @param epubId    Id of the epub the edition belongs to
+     * @param editionId Id of the edition to be deleted
+     * @return The deleted epub edition
+     * @throws ApiCallException         If the api returned an unexpected status
+     * @throws SessionExpiredException  If the credentials are incorrect
+     * @throws IllegalArgumentException If username or password are not given
+     * @throws NotFoundException        If either the epub id or edition id do not
+     *                                  exist
+     * @throws CacheMissException       If no credentials are stored in the clients
+     *                                  cache
+     */
+    public @Nullable EpubEditionDto deleteEpubEdition(long epubId,
+            long editionId) throws CacheMissException, ApiCallException, SessionExpiredException,
+            IllegalArgumentException, NotFoundException {
+        return deleteEpubEdition(getCurrentJwt(), epubId, editionId);
+    }
+
+    /**
+     * Deletes the epub edition with the given edition id
+     * 
+     * @param jwt       JWT to authenticate at the api with.
+     * @param epubId    Id of the epub the edition belongs to
+     * @param editionId Id of the edition to be deleted
+     * @return The deleted epub edition
+     * @throws ApiCallException         If the api returned an unexpected status
+     * @throws SessionExpiredException  If the credentials are incorrect
+     * @throws IllegalArgumentException If username or password are not given
+     * @throws NotFoundException        If either the epub id or edition id do not
+     *                                  exist
+     */
+    private final @Nullable EpubEditionDto deleteEpubEdition(@NotNull String jwt, long epubId, long editionId)
+            throws IllegalArgumentException, SessionExpiredException, ApiCallException, NotFoundException {
+        if (epubs == null)
+            epubs = new EpubAdapter(this);
+
+        return epubs.deleteEdition(jwt, epubId, editionId);
+    }
+
+    // #region add author
+    /**
+     * Adds a new author to the system. At least author.firstName and author.surname
+     * are required, everything else is optional.
+     * 
+     * @param username Username to log into the api with
+     * @param password Password to log into the api with.
+     * @param author   Author to add to the system.
+     * @return Added author
+     * @throws IllegalArgumentException If username, password, author.firstName or
+     *                                  author.surname are not given.
+     * @throws ApiCallException         General wrapper for unexpected api behaviour
+     * @throws SessionExpiredException  If authentication at the api did not work
+     * @throws BadRequestException      If the author dto was invalid.
+     */
+    public @Nullable AuthorDto addAuthor(@NotNull String username, @NotNull String password,
+            @NotNull AuthorDto author)
+            throws IllegalArgumentException, ApiCallException, SessionExpiredException, BadRequestException {
+        return addAuthor(getNewJwt(username, password), author);
+    }
+
+    /**
+     * Adds a new author to the system. At least author.firstName and author.surname
+     * are required, everything else is optional. Needs cached credentials to work
+     * 
+     * @param author Author to add to the system.
+     * @return Added author
+     * @throws IllegalArgumentException If author.firstName or
+     *                                  author.surname are not given.
+     * @throws ApiCallException         General wrapper for unexpected api behaviour
+     * @throws SessionExpiredException  If authentication at the api did not work
+     * @throws BadRequestException      If the author dto was invalid.
+     * @throws CacheMissException       If no credentials are cached within the
+     *                                  client.
+     */
+    public @Nullable AuthorDto addAuthor(@NotNull AuthorDto author) throws IllegalArgumentException, ApiCallException,
+            SessionExpiredException, BadRequestException, CacheMissException {
+        return addAuthor(getCurrentJwt(), author);
+    }
+
+    /**
+     * Adds a new author to the system. At least author.firstName and author.surname
+     * are required, everything else is optional.
+     * 
+     * @param jwt    JWT to authenticate at the api with.
+     * @param author Author to add to the system.
+     * @return Added author
+     * @throws IllegalArgumentException If jwt author.firstName or
+     *                                  author.surname are not given.
+     * @throws ApiCallException         General wrapper for unexpected api behaviour
+     * @throws SessionExpiredException  If authentication at the api did not work
+     * @throws BadRequestException      If the author dto was invalid.
+     */
+    private @Nullable AuthorDto addAuthor(@NotNull String jwt, @NotNull AuthorDto author)
+            throws IllegalArgumentException, ApiCallException, SessionExpiredException, BadRequestException {
+        if (authors == null)
+            authors = new AuthorAdapter(this);
+        return authors.addAuthor(jwt, author);
     }
 
     // #region register cache
