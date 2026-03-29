@@ -121,42 +121,44 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         if (!acquireLock()) {
             return null;
         }
+        try {
+            CachedValue<V> val = cache.get(key);
 
-        CachedValue<V> val = cache.get(key);
-
-        if (val == null) {
-            if (refresh) {
-                val = refresh(key);
-                if (val == null) {
-                    try {
-                        removeFromCache(key);
-                    } catch (Exception ex) {
-                        logger.info("Could not remove value from cache", ex);
+            if (val == null) {
+                if (refresh) {
+                    val = refresh(key);
+                    if (val == null) {
+                        try {
+                            removeFromCache(key);
+                        } catch (Exception ex) {
+                            logger.info("Could not remove value from cache", ex);
+                        }
                     }
                 }
-            }
-            if (val == null) {
-                return null;
-            }
-        }
-
-        if (isExpired(val)) {
-            if (refresh) {
-                val = refresh(key);
                 if (val == null) {
-                    try {
-                        removeFromCache(key);
-                    } catch (Exception ex) {
-                        logger.info("Could not remove value from cache", ex);
-                    }
+                    return null;
                 }
             }
-            if (val == null) {
-                return null;
+
+            if (isExpired(val)) {
+                if (refresh) {
+                    val = refresh(key);
+                    if (val == null) {
+                        try {
+                            removeFromCache(key);
+                        } catch (Exception ex) {
+                            logger.info("Could not remove value from cache", ex);
+                        }
+                    }
+                }
+                if (val == null) {
+                    return null;
+                }
             }
+            return val.getValue();
+        } finally {
+            unlock();
         }
-        lock.unlock();
-        return val.getValue();
     }
 
     /**
@@ -202,15 +204,19 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         if (key == null || value == null) {
             throw new CachingException("Key or value is null", null);
         }
+
         if (!acquireLock()) {
             throw new CachingException("Could not acquire lock on cache", null);
         }
 
-        CachedValue<V> newVal = new CachedValue<>();
-        newVal.value = value;
-        newVal.addedAt = LocalDateTime.now();
-        cache.put(key, newVal);
-        lock.unlock();
+        try {
+            CachedValue<V> newVal = new CachedValue<>();
+            newVal.value = value;
+            newVal.addedAt = LocalDateTime.now();
+            cache.put(key, newVal);
+        } finally {
+            unlock();
+        }
 
         if (maxElements >= 0 && cache.size() > maxElements) {
             executor.submit(this::removeOldest);
@@ -225,39 +231,45 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         if (!acquireLock()) {
             throw new CachingException("Could not acquire lock on cache", null);
         }
+        try {
+            CachedValue<V> cached = cache.get(key);
+            if (cached == null) {
+                return null;
+            }
 
-        CachedValue<V> cached = cache.get(key);
-        if (cached == null) {
-            return null;
+            cache.remove(key);
+            return cached.getValue();
+        } finally {
+            unlock();
         }
-
-        cache.remove(key);
-        lock.unlock();
-        return cached.getValue();
     }
 
     /**
      * Removes the oldest item from the cache.
      */
     private final void removeOldest() {
-        K oldest = null;
         if (!acquireLock()) {
+            logger.warn("Could not acquire lock, not removing oldest");
             return;
         }
+        try {
+            K oldest = null;
 
-        for (var x : cache.keySet()) {
-            if (oldest == null) {
-                oldest = x;
-                continue;
-            }
+            for (var x : cache.keySet()) {
+                if (oldest == null) {
+                    oldest = x;
+                    continue;
+                }
 
-            if (cache.get(x).getAddedAt().isBefore(cache.get(oldest).getAddedAt())) {
-                oldest = x;
-                continue;
+                if (cache.get(x).getAddedAt().isBefore(cache.get(oldest).getAddedAt())) {
+                    oldest = x;
+                    continue;
+                }
             }
+            cache.remove(oldest);
+        } finally {
+            unlock();
         }
-        cache.remove(oldest);
-        lock.unlock();
     }
 
     /**
@@ -330,5 +342,11 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         }
 
         return cache.get(k).getValue();
+    }
+
+    private void unlock() {
+        if (!lock.isHeldByCurrentThread())
+            return;
+        lock.unlock();
     }
 }
