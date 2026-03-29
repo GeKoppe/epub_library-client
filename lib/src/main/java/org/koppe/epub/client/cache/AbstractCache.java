@@ -118,7 +118,6 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         }
 
         CachedValue<V> val = cache.get(key);
-        lock.unlock();
 
         if (val == null) {
             if (refresh) {
@@ -151,7 +150,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
                 return null;
             }
         }
-
+        lock.unlock();
         return val.getValue();
     }
 
@@ -218,14 +217,15 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
      */
     @Override
     public V removeFromCache(K key) throws CachingException {
+        if (!acquireLock()) {
+            throw new CachingException("Could not acquire lock on cache", null);
+        }
+
         CachedValue<V> cached = cache.get(key);
         if (cached == null) {
             return null;
         }
 
-        if (!acquireLock()) {
-            throw new CachingException("Could not acquire lock on cache", null);
-        }
         cache.remove(key);
         lock.unlock();
         return cached.getValue();
