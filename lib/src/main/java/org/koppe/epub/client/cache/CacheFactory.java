@@ -6,6 +6,10 @@ import org.koppe.epub.client.EpubClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Factory class that provides static methods to initialise caches for different
+ * entities.
+ */
 public abstract class CacheFactory {
     /**
      * Logger
@@ -30,8 +34,30 @@ public abstract class CacheFactory {
         return cache;
     }
 
+    /**
+     * Initialises new default cache for epubs. 15 minutes of retention,
+     * maximum of 100 elements, no automatic refresh.
+     * 
+     * @return The initialised cache
+     */
     public static EpubCache newDefaultEpubCache() {
-        return new EpubCache();
+        EpubCache cache = new EpubCache();
+        cache.setMaxElements(100);
+        cache.setRetention(15, TimeUnit.MINUTES);
+        return cache;
+    }
+
+    /**
+     * Initialises new default cache for epub editions. 15 minutes of retention,
+     * maximum of 100 elements, no automatic refresh.
+     * 
+     * @return The initialised cache
+     */
+    public static EditionCache newDefaultEditionCache() {
+        EditionCache cache = new EditionCache();
+        cache.setMaxElements(100);
+        cache.setRetention(15, TimeUnit.MINUTES);
+        return cache;
     }
 
     /**
@@ -41,18 +67,17 @@ public abstract class CacheFactory {
      * initialise the cache.
      * 
      * @param type   Type of cache to be created
-     * @param client Client the caches use for auto refreshment.
+     * @param client Client the caches use for auto refreshment. At the moment this
+     *               is only required for the credential cache.
      * @return The initialised cache instance.
      */
     public static Cache<?, ?> newDefaultCacheForType(CacheType type, EpubClient client) {
         logger.info("Creating new default cache instance for type {}", type);
-        switch (type) {
-            case CREDENTIALS:
-                return newDefaultCredentialCache(client);
-            case EPUBS:
-                return newDefaultEpubCache();
-            default:
-                return null;
-        }
+        return switch (type) {
+            case CREDENTIALS -> newDefaultCredentialCache(client);
+            case EPUBS -> newDefaultEpubCache();
+            case EDITIONS -> newDefaultEditionCache();
+            default -> null;
+        };
     }
 }

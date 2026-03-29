@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 
@@ -18,6 +19,7 @@ import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
 import org.koppe.epub.client.exceptions.CacheMissException;
 import org.koppe.epub.client.exceptions.ForbiddenException;
+import org.koppe.epub.client.exceptions.IllegalFileTypeException;
 import org.koppe.epub.client.exceptions.NotFoundException;
 import org.koppe.epub.client.exceptions.ServerErrorException;
 import org.koppe.epub.client.exceptions.SessionExpiredException;
@@ -282,6 +284,7 @@ public class EpubClientCommunicationTest {
                         null, false));
     }
 
+    // #region test paged
     @Test
     public void testExecuteRequestPaged() {
         server = new MockWebServer();
@@ -330,6 +333,7 @@ public class EpubClientCommunicationTest {
                         null, false));
     }
 
+    // #region test next page
     @Test
     public void testGetNextPage() {
         server.setDispatcher(new MockDispatcher());
@@ -356,5 +360,30 @@ public class EpubClientCommunicationTest {
         assertEquals(1, response.getContent().size());
         assertEquals(DtoRecord.epub2, response.getContent().get(0));
         assertEquals(1L, (long) response.getNumber());
+    }
+
+    // #region get upload
+    @Test
+    public void testUpload() {
+        server.setDispatcher(new MockDispatcher());
+        EpubClient client = EpubClientFactory.newCredentialCacheClient(server.url("/").toString());
+
+        File epub = new File(getClass().getClassLoader().getResource("epubs/test.epub").getFile());
+        File pdf = new File(getClass().getClassLoader().getResource("epubs/test.pdf").getFile());
+
+        assertThrows(IllegalArgumentException.class, () -> client.uploadEpub("admin", "admin", null, null));
+        assertThrows(IllegalArgumentException.class, () -> client.uploadEpub("admin", "admin", "", null));
+        assertThrows(IllegalArgumentException.class, () -> client.uploadEpub("admin", "admin", "     ", null));
+        assertThrows(IllegalArgumentException.class, () -> client.uploadEpub("admin", "admin", null, epub));
+        assertThrows(IllegalFileTypeException.class, () -> client.uploadEpub("admin", "admin", "123", pdf));
+
+        assertThrows(BadRequestException.class, () -> client.uploadEpub("admin", "admin", "234", epub));
+
+        try {
+            client.uploadEpub("admin", "admin", "123", epub);
+        } catch (IllegalArgumentException | IllegalFileTypeException | ApiCallException | SessionExpiredException
+                | BadRequestException e) {
+            fail();
+        }
     }
 }
