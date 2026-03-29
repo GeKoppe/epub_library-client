@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.jetbrains.annotations.NotNull;
@@ -51,6 +52,7 @@ class EpubAdapter {
      * Object mapper for transforming objects to json strings
      */
     private final ObjectMapper mapper = new ObjectMapper();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     // #region add epub
     /**
@@ -334,7 +336,7 @@ class EpubAdapter {
         }
 
         final PagedRequestDto<EpubDto> finalResult = result;
-        Executors.newFixedThreadPool(1).submit(() -> {
+        executor.submit(() -> {
             logger.info("Caching results of paged request in different thread");
             if (finalResult.getContent() != null) {
                 logger.info("Trying to cache result content");
