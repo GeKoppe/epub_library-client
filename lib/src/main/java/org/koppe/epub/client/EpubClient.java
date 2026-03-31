@@ -1013,6 +1013,87 @@ public class EpubClient {
             authors = new AuthorAdapter(this);
         return authors.addAuthor(jwt, author);
     }
+    // #endregion add author
+
+    // #region get author
+    /**
+     * Returns the author with given id. Query defines what the backend should add
+     * into the AuthorDto (for example if epubs should be returned as well.)
+     * Example of getting author with id 1, as well as all epubs associated with it:
+     * 
+     * <pre>
+     * {@code
+     * HttpQuery query = new AuthorQueryBuilder().withEpubs(true).build();
+     * AuthorDto dto = client.getAuthor("admin", "admin", 1L, query);
+     * }
+     * </pre>
+     * 
+     * @param username Username to authenticate at the api
+     * @param password Password to authenticate at the api
+     * @param authorId Id of the author to return
+     * @param query    Query for getting author.
+     * @return Requested author.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws ApiCallException         General api error wrapper
+     * @throws SessionExpiredException  If client could not authenticate
+     */
+    public @Nullable AuthorDto getAuthor(@NotNull String username, @NotNull String password, long authorId,
+            @Nullable HttpQuery query) throws IllegalArgumentException, ApiCallException, SessionExpiredException {
+        return getAuthor(getNewJwt(username, password), authorId, query);
+    }
+
+    /**
+     * Returns the author with given id. Query defines what the backend should add
+     * into the AuthorDto (for example if epubs should be returned as well.)
+     * Requires cached credentials.
+     * Example of getting author with id 1, as well as all epubs associated with it:
+     * 
+     * <pre>
+     * {@code
+     * HttpQuery query = new AuthorQueryBuilder().withEpubs(true).build();
+     * AuthorDto dto = client.getAuthor(1L, query);
+     * }
+     * </pre>
+     * 
+     * @param authorId Id of the author to return
+     * @param query    Query for getting author.
+     * @return Requested author.
+     * @throws CacheMissException
+     * @throws ApiCallException        General api error wrapper
+     * @throws SessionExpiredException If client could not authenticate
+     */
+    public @Nullable AuthorDto getAuthor(long authorId, @Nullable HttpQuery query)
+            throws CacheMissException, ApiCallException, SessionExpiredException {
+        return getAuthor(getCurrentJwt(), authorId, query);
+    }
+
+    /**
+     * Returns the author with given id. Query defines what the backend should add
+     * into the AuthorDto (for example if epubs should be returned as well.)
+     * Example of getting author with id 1, as well as all epubs associated with it:
+     * 
+     * <pre>
+     * {@code
+     * HttpQuery query = new AuthorQueryBuilder().withEpubs(true).build();
+     * AuthorDto dto = client.getAuthor("jwt-123", 1L, query);
+     * }
+     * </pre>
+     * 
+     * @param jwt      JWT to authenticate at the api
+     * @param authorId Id of the author to return
+     * @param query    Query for getting author.
+     * @return Requested author.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws ApiCallException         General api error wrapper
+     * @throws SessionExpiredException  If client could not authenticate
+     */
+    private @Nullable AuthorDto getAuthor(@NotNull String jwt, long authorId, @Nullable HttpQuery query)
+            throws ApiCallException, SessionExpiredException {
+        if (authors == null)
+            authors = new AuthorAdapter(this);
+        return authors.getAuthorById(jwt, authorId, query);
+    }
+    // #endregion get author
 
     // #region register cache
     /**

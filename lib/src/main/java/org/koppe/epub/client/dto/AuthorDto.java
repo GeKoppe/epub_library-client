@@ -44,4 +44,5 @@ public class AuthorDto {
     private String description;
     private List<EpubDto> epubs;
     private List<TagDto> tags;
+    private List<GenreDto> genres;
 }

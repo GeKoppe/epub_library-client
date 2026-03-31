@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.koppe.epub.client.dto.AuthorDto;
 import org.koppe.epub.client.dto.EpubDto;
 import org.koppe.epub.client.dto.EpubEditionDto;
 import org.koppe.epub.client.dto.PagedRequestDto;
@@ -70,6 +71,20 @@ public class MockDispatcher extends Dispatcher {
                     switch (request.getMethod()) {
                         case "POST":
                             return upload(request);
+                        default:
+                            return new MockResponse().setResponseCode(403);
+                    }
+                case "/authors":
+                    switch (request.getMethod()) {
+                        case "POST":
+                            return addAuthor(request);
+                        default:
+                            return new MockResponse().setResponseCode(403);
+                    }
+                case "/authors/1", "/authors/2":
+                    switch (request.getMethod()) {
+                        case "GET":
+                            return getAuthor(request);
                         default:
                             return new MockResponse().setResponseCode(403);
                     }
@@ -234,6 +249,50 @@ public class MockDispatcher extends Dispatcher {
         }
 
         return new MockResponse().setResponseCode(400);
+    }
+
+    // #region add author
+    private MockResponse addAuthor(RecordedRequest r) {
+        AuthorDto dto = getBody(r.getBody(), AuthorDto.class);
+        if (dto == null) {
+            return new MockResponse().setResponseCode(400);
+        }
+
+        if (dto.getFirstName() == null || dto.getFirstName().isBlank() || dto.getSurname() == null
+                || dto.getSurname().isBlank()) {
+            return new MockResponse().setResponseCode(400);
+        }
+
+        dto.setId((long) Math.floor(Math.random() * 100.0) + 1);
+        return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(dto));
+    }
+
+    // #region get author
+    private MockResponse getAuthor(RecordedRequest r) {
+        AuthorDto dto = r.getPath().contains("1") ? DtoRecord.author1 : DtoRecord.author2;
+
+        if (r.getRequestUrl().queryParameter("with_epubs") == null
+                || r.getRequestUrl().queryParameter("with_epubs").equals("false"))
+            dto.setEpubs(new ArrayList<>());
+        else if (r.getRequestUrl().queryParameter("with_epubs").equals("true")) {
+            dto.setEpubs(List.of(DtoRecord.epub1, DtoRecord.epub2));
+        }
+
+        if (r.getRequestUrl().queryParameter("with_genres") == null
+                || r.getRequestUrl().queryParameter("with_genres").equals("false"))
+            dto.setGenres(new ArrayList<>());
+        else if (r.getRequestUrl().queryParameter("with_genres").equals("true")) {
+            dto.setGenres(List.of(DtoRecord.genre1, DtoRecord.genre2));
+        }
+
+        if (r.getRequestUrl().queryParameter("with_tags") == null
+                || r.getRequestUrl().queryParameter("with_tags").equals("false"))
+            dto.setGenres(new ArrayList<>());
+        else if (r.getRequestUrl().queryParameter("with_tags").equals("true")) {
+            dto.setGenres(new ArrayList<>());
+        }
+
+        return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(dto));
     }
 
     // #region get body

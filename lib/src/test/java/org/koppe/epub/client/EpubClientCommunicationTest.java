@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.Test;
+import org.koppe.epub.client.dto.AuthorDto;
 import org.koppe.epub.client.dto.CredentialDto;
 import org.koppe.epub.client.dto.EpubDto;
 import org.koppe.epub.client.dto.EpubEditionDto;
@@ -24,6 +26,7 @@ import org.koppe.epub.client.exceptions.NotFoundException;
 import org.koppe.epub.client.exceptions.ServerErrorException;
 import org.koppe.epub.client.exceptions.SessionExpiredException;
 import org.koppe.epub.client.exceptions.UnexpectedStatusException;
+import org.koppe.epub.client.http.AuthorQueryBuilder;
 import org.koppe.epub.client.http.EpubQueryBuilder;
 
 import okhttp3.Request;
@@ -383,6 +386,65 @@ public class EpubClientCommunicationTest {
             client.uploadEpub("admin", "admin", "123", epub);
         } catch (IllegalArgumentException | IllegalFileTypeException | ApiCallException | SessionExpiredException
                 | BadRequestException e) {
+            fail();
+        }
+    }
+
+    // #region add author
+    @Test
+    public void testAddAuthor() {
+        server.setDispatcher(new MockDispatcher());
+        EpubClient client = EpubClientFactory.newCredentialCacheClient(server.url("/").toString());
+
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor(null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor("", null, null));
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor(null, "", null));
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor("admin", "admin", null));
+
+        AuthorDto toAdd = new AuthorDto();
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor("admin", "admin", toAdd));
+
+        toAdd.setFirstName(" ");
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor(toAdd));
+
+        toAdd.setFirstName("Test");
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor(toAdd));
+
+        toAdd.setSurname(" ");
+        assertThrows(IllegalArgumentException.class, () -> client.addAuthor(toAdd));
+
+        toAdd.setSurname("Test");
+        AuthorDto added = null;
+
+        try {
+            added = client.addAuthor(toAdd);
+        } catch (IllegalArgumentException | ApiCallException | SessionExpiredException | BadRequestException
+                | CacheMissException e) {
+            fail();
+        }
+
+        assertNotNull(added);
+        assertEquals(toAdd.getFirstName(), added.getFirstName());
+        assertEquals(toAdd.getSurname(), added.getSurname());
+        assertNotNull(added.getId());
+    }
+
+    @Test
+    public void testGetAuthor() {
+        server.setDispatcher(new MockDispatcher());
+        EpubClient client = EpubClientFactory.newCredentialCacheClient(server.url("/").toString());
+
+        try {
+            AuthorDto a3 = client.getAuthor("admin", "admin", 3L, null);
+            assertNull(a3);
+
+            AuthorDto a1 = client.getAuthor(1L, new AuthorQueryBuilder().withEpubs(true).withGenres(true).build());
+            AuthorDto a2 = client.getAuthor(2L, null);
+
+            assertEquals((Long) 1L, a1.getId());
+            assertEquals("Test", a1.getFirstName());
+            assertTrue(a1.getEpubs().size() > 0);
+        } catch (Exception ex) {
             fail();
         }
     }
