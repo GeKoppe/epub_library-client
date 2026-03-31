@@ -98,3 +98,8 @@ client.registerCache(CacheType.EPUBS, cache);
 ```
 
 If you now do an epub operation, the client will use the cache you supplied.
+
+
+# Changelog
+
+See [changelog](doc/changelog.md).
