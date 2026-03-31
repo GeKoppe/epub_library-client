@@ -1,11 +1,11 @@
 package org.koppe.epub.client;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -444,6 +444,9 @@ public class EpubClientCommunicationTest {
             assertEquals((Long) 1L, a1.getId());
             assertEquals("Test", a1.getFirstName());
             assertTrue(a1.getEpubs().size() > 0);
+            assertNotNull(a2);
+            assertEquals("Test2", a2.getFirstName());
+            assertTrue(a2.getEpubs().size() == 0);
         } catch (Exception ex) {
             fail();
         }

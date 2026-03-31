@@ -41,6 +41,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -1209,7 +1210,17 @@ public class EpubClient {
                         logger.info("Expecting void, returning");
                         return null;
                     }
-                    String body = response.body().string();
+                    ResponseBody resp = response.body();
+                    if (resp == null) {
+                        logger.info("No response body");
+                        return null;
+                    }
+                    String body = resp.string();
+                    if (body == null || body.isBlank()) {
+                        logger.info("No response body");
+                        return null;
+                    }
+
                     dto = mapper.readValue(body, type);
                     break;
                 case 204:

@@ -77,7 +77,16 @@ public abstract class CacheFactory {
             case CREDENTIALS -> newDefaultCredentialCache(client);
             case EPUBS -> newDefaultEpubCache();
             case EDITIONS -> newDefaultEditionCache();
+            case AUTHORS -> newDefaultAuthorCache();
             default -> null;
         };
+    }
+
+    public static AuthorCache newDefaultAuthorCache() {
+        AuthorCache cache = new AuthorCache();
+        cache.setRetention(10, TimeUnit.MINUTES);
+        cache.setMaxElements(100);
+
+        return cache;
     }
 }

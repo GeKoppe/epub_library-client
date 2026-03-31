@@ -139,9 +139,9 @@ class AuthorAdapter {
             return (AuthorDto) cached;
         }
 
-        logger.info("Retrieving epub for id {}", authorId);
+        logger.info("Retrieving authors for id {}", authorId);
         Request.Builder builder = new Request.Builder()
-                .url(String.format("%s/epubs/%s%s", client.url(), "" + authorId,
+                .url(String.format("%s/authors/%s%s", client.url(), "" + authorId,
                         (query != null ? query.toQueryString() : "")))
                 .get();
 
