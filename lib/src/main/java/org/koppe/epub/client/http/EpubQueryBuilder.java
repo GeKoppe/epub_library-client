@@ -43,6 +43,12 @@ public class EpubQueryBuilder extends AbstractQueryBuilder {
         return this;
     }
 
+    /**
+     * Find all epubs which titles contain the given string.
+     * 
+     * @param title Substring of the title to find
+     * @return This builder
+     */
     public EpubQueryBuilder titleContains(String title) {
         getBuilder().addParam(String.class, "title_contains", title);
         return this;
