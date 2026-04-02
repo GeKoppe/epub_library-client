@@ -1096,6 +1096,27 @@ public class EpubClient {
     }
     // #endregion get author
 
+    // #region delete author
+    public @Nullable AuthorDto deleteAuthor(@NotNull String username, @NotNull String password, long authorId,
+            boolean deleteWithBooks)
+            throws ApiCallException, SessionExpiredException, IllegalArgumentException, BadRequestException {
+        return deleteAuthor(getNewJwt(username, password), authorId, deleteWithBooks);
+    }
+
+    public @Nullable AuthorDto deleteAuthor(long authorId, boolean deleteWithBooks)
+            throws CacheMissException, ApiCallException, SessionExpiredException, IllegalArgumentException,
+            BadRequestException {
+        return deleteAuthor(getCurrentJwt(), authorId, deleteWithBooks);
+    }
+
+    private @Nullable AuthorDto deleteAuthor(@NotNull String jwt, long authorId, boolean deleteWithBooks)
+            throws IllegalArgumentException, SessionExpiredException, ApiCallException, BadRequestException {
+        if (authors == null)
+            authors = new AuthorAdapter(this);
+        return authors.deleteAuthor(jwt, authorId, deleteWithBooks);
+    }
+    // #endregion delete author
+
     // #region register cache
     /**
      * Adds a new cache type to the clients internal caches, if such a cache type is

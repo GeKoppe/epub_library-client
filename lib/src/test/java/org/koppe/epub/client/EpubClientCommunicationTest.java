@@ -466,6 +466,7 @@ public class EpubClientCommunicationTest {
         assertNotNull(added.getId());
     }
 
+    // #region get author
     @Test
     public void testGetAuthor() {
         server.setDispatcher(new MockDispatcher());
@@ -485,7 +486,31 @@ public class EpubClientCommunicationTest {
             assertEquals("Test2", a2.getFirstName());
             assertTrue(a2.getEpubs().size() == 0);
         } catch (Exception ex) {
-            fail();
+            fail(ex.getMessage());
+        }
+    }
+
+    @Test
+    public void testDeleteAuthor() {
+        server.setDispatcher(new MockDispatcher());
+        EpubClient client = EpubClientFactory.newCredentialCacheClient(server.url("/").toString());
+
+        try {
+            AuthorDto dto = null;
+            dto = client.deleteAuthor("admin", "admin", 3, false);
+            assertNull(dto);
+
+            dto = client.deleteAuthor(1, false);
+            assertNotNull(dto);
+            assertEquals("Test", dto.getFirstName());
+
+            dto = client.deleteAuthor(2, true);
+            assertNotNull(dto);
+            assertEquals("Test2", dto.getFirstName());
+            assertEquals(2, dto.getEpubs().size());
+        } catch (IllegalArgumentException | ApiCallException | SessionExpiredException | BadRequestException
+                | CacheMissException e) {
+            fail(e.getMessage());
         }
     }
 }
