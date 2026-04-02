@@ -563,6 +563,7 @@ class EpubAdapter {
                 throw new IOException(ex);
             }
 
+            logger.debug("Download file created, writing file stream into download file");
             try (InputStream is = response.body().byteStream(); OutputStream os = new FileOutputStream(downloaded)) {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
@@ -570,6 +571,7 @@ class EpubAdapter {
                     os.write(buffer, 0, bytesRead);
                 }
             }
+            logger.info("Successfull wrote body into file " + downloaded);
             return downloaded;
         } catch (IOException ex) {
             // TODO throw sensible exceptions
@@ -615,21 +617,25 @@ class EpubAdapter {
             logger.info("Could not determine a file name, using default");
             fileName = "epub.epub";
         }
-
         logger.debug("Determined file name \"" + fileName + "\"");
-        File dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName);
 
+        String extension = fileName.substring(fileName.lastIndexOf("."));
+        fileName = fileName.substring(0, fileName.lastIndexOf("."));
+
+        File dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + extension);
         if (dl.exists()) {
+            logger.debug("Filename already exists in download folder, adding iterator");
             int iterator = 0;
             while (dl.exists()) {
                 iterator++;
                 if (iterator >= 1000) {
                     throw new IOException("Too many epubs with given name downloaded");
                 }
-                dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + "(" + iterator + ")");
+                dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + " (" + iterator + ")" + extension);
             }
         }
         dl.createNewFile();
+        logger.info("File {} created", dl);
 
         return dl;
     }

@@ -390,6 +390,43 @@ public class EpubClientCommunicationTest {
         }
     }
 
+    // #region download
+    @Test
+    public void testDownload() {
+        server.setDispatcher(new MockDispatcher());
+        EpubClient client = EpubClientFactory.newCredentialCacheClient(server.url("/").toString());
+
+        File downloadFolder = new File(System.getProperty("java.io.tmpdir"));
+        File epub = null;
+        File epub2 = null;
+        File cover = null;
+        File cover2 = null;
+
+        try {
+            epub = client.download("admin", "admin", "123", downloadFolder, false);
+            epub2 = client.download("123", downloadFolder, false);
+            cover = client.download("123", downloadFolder, true);
+            cover2 = client.download("123", downloadFolder, true);
+            assertNotNull(epub);
+            assertNotNull(epub2);
+            assertNotNull(cover);
+            assertNotNull(cover2);
+            assertTrue(epub2.getName().contains("(1)"));
+            assertTrue(cover2.getName().contains("(1)"));
+        } catch (Exception ex) {
+            fail();
+        } finally {
+            if (epub.exists())
+                epub.delete();
+            if (epub2.exists())
+                epub2.delete();
+            if (cover.exists())
+                cover.delete();
+            if (cover2.exists())
+                cover2.delete();
+        }
+    }
+
     // #region add author
     @Test
     public void testAddAuthor() {
