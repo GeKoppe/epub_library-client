@@ -5,6 +5,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.koppe.epub.client.exceptions.CachingException;
 
+/**
+ * Interface for all caches.
+ * 
+ * @param <K> Type of keys in the cache.
+ * @param <V> Type of values in the cache.
+ */
 public interface Cache<K, V> {
     /**
      * Returns the cached value associated with the given key
@@ -76,6 +82,11 @@ public interface Cache<K, V> {
      */
     public V removeFromCache(K key) throws CachingException;
 
+    /**
+     * Returns all elements in the cache.
+     * 
+     * @return All elements in the cache.
+     */
     public Map<K, V> getAll();
 
     /**

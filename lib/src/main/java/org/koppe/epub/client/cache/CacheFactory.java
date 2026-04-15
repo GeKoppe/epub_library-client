@@ -82,6 +82,15 @@ public abstract class CacheFactory {
         };
     }
 
+    // #region default author cache
+    /**
+     * Creates a default cache for AuthorDtos.
+     * Retention: 10 minutes.
+     * Maximum elements: 100.
+     * No automatic refresh.
+     * 
+     * @return The created cache.
+     */
     public static AuthorCache newDefaultAuthorCache() {
         AuthorCache cache = new AuthorCache();
         cache.setRetention(10, TimeUnit.MINUTES);

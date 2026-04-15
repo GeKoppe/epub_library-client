@@ -10,7 +10,7 @@ import org.koppe.epub.client.cache.CacheType;
 import org.koppe.epub.client.dto.AuthorDto;
 import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
-import org.koppe.epub.client.exceptions.SessionExpiredException;
+import org.koppe.epub.client.exceptions.AuthorizationException;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -33,7 +33,7 @@ public class AuthorAdapterTest {
             assertThrows(IllegalArgumentException.class, () -> adapter.addAuthor(" ", null));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class, () -> adapter.addAuthor("fake-jwt-123", dto));
+            assertThrows(AuthorizationException.class, () -> adapter.addAuthor("fake-jwt-123", dto));
 
             server.enqueue(new MockResponse().setResponseCode(400));
             assertThrows(BadRequestException.class, () -> adapter.addAuthor("fake-jwt-123", dto));
@@ -70,7 +70,7 @@ public class AuthorAdapterTest {
             assertThrows(IllegalArgumentException.class, () -> adapter.getAuthorById(" ", 1L, null));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class, () -> adapter.getAuthorById("fake-jwt-123", 1L, null));
+            assertThrows(AuthorizationException.class, () -> adapter.getAuthorById("fake-jwt-123", 1L, null));
 
             server.enqueue(new MockResponse().setResponseCode(400));
             assertThrows(ApiCallException.class, () -> adapter.getAuthorById("fake-jwt-123", 1L, null));

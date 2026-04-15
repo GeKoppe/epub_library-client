@@ -14,7 +14,7 @@ import org.koppe.epub.client.exceptions.BadRequestException;
 import org.koppe.epub.client.exceptions.ForbiddenException;
 import org.koppe.epub.client.exceptions.NotFoundException;
 import org.koppe.epub.client.exceptions.ServerErrorException;
-import org.koppe.epub.client.exceptions.SessionExpiredException;
+import org.koppe.epub.client.exceptions.AuthorizationException;
 import org.koppe.epub.client.exceptions.UnexpectedStatusException;
 import org.koppe.epub.client.http.AuthorQueryBuilder;
 import org.koppe.epub.client.http.HttpQuery;
@@ -66,11 +66,11 @@ class AuthorAdapter {
      * @throws IllegalArgumentException If no jwt, author, author.firstName or
      *                                  author.surname is given.
      * @throws ApiCallException         General wrapper for all unexpected api error
-     * @throws SessionExpiredException  If the jwt has expired
+     * @throws AuthorizationException   If the jwt has expired
      * @throws BadRequestException      If the author dto was invalid.
      */
     protected @Nullable AuthorDto addAuthor(@NotNull String jwt, @NotNull AuthorDto author)
-            throws IllegalArgumentException, ApiCallException, SessionExpiredException, BadRequestException {
+            throws IllegalArgumentException, ApiCallException, AuthorizationException, BadRequestException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("Invalid jwt given");
             throw new IllegalArgumentException("Missing jwt");
@@ -93,7 +93,7 @@ class AuthorAdapter {
         AuthorDto dto = null;
         try {
             dto = client.executeRequest(builder.build(), AuthorDto.class, null, true);
-        } catch (SessionExpiredException e) {
+        } catch (AuthorizationException e) {
             logger.warn("JWT has expired");
             throw e;
         } catch (BadRequestException e) {
@@ -123,11 +123,11 @@ class AuthorAdapter {
      * @param query    Defines attributes the api should return, for example whether
      *                 books should be returned as well
      * @return Queried author or null, if no such author exists
-     * @throws ApiCallException        General wrapper for all unexpected api errors
-     * @throws SessionExpiredException If the jwt has expired
+     * @throws ApiCallException       General wrapper for all unexpected api errors
+     * @throws AuthorizationException If the jwt has expired
      */
     protected @Nullable AuthorDto getAuthorById(@NotNull String jwt, long authorId, @Nullable HttpQuery query)
-            throws ApiCallException, SessionExpiredException {
+            throws ApiCallException, AuthorizationException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("Invalid jwt given");
             throw new IllegalArgumentException("Missing jwt");
@@ -155,7 +155,7 @@ class AuthorAdapter {
                 | ServerErrorException | UnexpectedStatusException | IOException e) {
             logger.info("Request failed with an exception", e);
             throw new ApiCallException(null, e);
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             logger.info("Jwt expired");
             throw ex;
         } catch (NotFoundException ex) {
@@ -183,13 +183,13 @@ class AuthorAdapter {
      *                        are deleted as well. USE WITH CAUTION.
      * @return The deleted author or null, if no author with given id exists
      * @throws IllegalArgumentException If no jwt is given
-     * @throws SessionExpiredException  If the session has expired
+     * @throws AuthorizationException   If the session has expired
      * @throws ApiCallException         If an unexpected error occurred during the
      *                                  api call.
      * @throws BadRequestException      If the server returned 400
      */
     protected @Nullable AuthorDto deleteAuthor(@NotNull String jwt, long authorId, boolean deleteWithBooks)
-            throws IllegalArgumentException, SessionExpiredException, ApiCallException, BadRequestException {
+            throws IllegalArgumentException, AuthorizationException, ApiCallException, BadRequestException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("Invalid jwt given");
             throw new IllegalArgumentException("Missing jwt");
@@ -209,7 +209,7 @@ class AuthorAdapter {
         AuthorDto dto = null;
         try {
             dto = client.executeRequest(builder.build(), AuthorDto.class, query, false);
-        } catch (SessionExpiredException e) {
+        } catch (AuthorizationException e) {
             logger.info("Session has expired", e);
             throw e;
         } catch (BadRequestException e) {
@@ -235,16 +235,18 @@ class AuthorAdapter {
 
     // #region get all authors
     /**
+     * Returns all authors matching the given query. If no query is given, all
+     * authors are returned (maximum 1000, pageable).
      * 
-     * @param jwt
-     * @param query
-     * @return
-     * @throws IllegalArgumentException
-     * @throws ApiCallException
-     * @throws SessionExpiredException
+     * @param jwt   JWT to authorize at the api.
+     * @param query Query to filter the authors
+     * @return All found authors
+     * @throws IllegalArgumentException If jwt is missing
+     * @throws ApiCallException         General wrapper for all api exception
+     * @throws AuthorizationException   If authorization failed
      */
     public @Nullable PagedRequestDto<AuthorDto> getAllAuthors(@NotNull String jwt, @Nullable HttpQuery query)
-            throws IllegalArgumentException, ApiCallException, SessionExpiredException {
+            throws IllegalArgumentException, ApiCallException, AuthorizationException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
             throw new IllegalArgumentException("Missing jwt");
@@ -273,7 +275,7 @@ class AuthorAdapter {
                 | ServerErrorException | UnexpectedStatusException | IOException e) {
             logger.info("Unexpected status returned by api", e);
             throw new ApiCallException(null, e);
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             logger.info("Session has expired");
             throw ex;
         }

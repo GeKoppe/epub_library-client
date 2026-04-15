@@ -305,6 +305,9 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         private LocalDateTime addedAt;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Map<K, V> getAll() {
         Map<K, V> all = new HashMap<>();
@@ -314,6 +317,11 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         return all;
     }
 
+    /**
+     * Returns the newest entry to the cache.
+     * 
+     * @return Newest entry to the cache.
+     */
     public V getNewest() {
         K k = null;
         for (K x : cache.keySet()) {
@@ -329,6 +337,11 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         return cache.get(k).getValue();
     }
 
+    /**
+     * Returns oldest entry to the cache.
+     * 
+     * @return Oldest entry to the cache.
+     */
     public V getOldest() {
         K k = null;
         for (K x : cache.keySet()) {
@@ -344,6 +357,9 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         return cache.get(k).getValue();
     }
 
+    /**
+     * Unlocks the reentrant lock
+     */
     private void unlock() {
         if (!lock.isHeldByCurrentThread())
             return;
