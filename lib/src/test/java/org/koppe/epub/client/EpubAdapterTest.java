@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
 import org.koppe.epub.client.exceptions.NotFoundException;
-import org.koppe.epub.client.exceptions.SessionExpiredException;
+import org.koppe.epub.client.exceptions.AuthorizationException;
 import org.koppe.epub.client.http.HttpQuery;
 
 import okhttp3.mockwebserver.MockResponse;
@@ -53,7 +53,7 @@ public class EpubAdapterTest {
             assertThrows(ApiCallException.class, () -> adapter.addEpub("fake-jwt-123", DtoRecord.epub1));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class, () -> adapter.addEpub("fake-jwt-123", DtoRecord.epub1));
+            assertThrows(AuthorizationException.class, () -> adapter.addEpub("fake-jwt-123", DtoRecord.epub1));
 
         } catch (Exception ex) {
             fail();
@@ -72,7 +72,7 @@ public class EpubAdapterTest {
             assertNull(adapter.deleteEpub("fake-jwt-123", 1));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class, () -> adapter.deleteEpub("fake-jwt-123", 1));
+            assertThrows(AuthorizationException.class, () -> adapter.deleteEpub("fake-jwt-123", 1));
 
             server.enqueue(new MockResponse().setResponseCode(403));
             assertThrows(ApiCallException.class, () -> adapter.deleteEpub("fake-jwt-123", 1));
@@ -102,7 +102,7 @@ public class EpubAdapterTest {
             assertNull(adapter.getEpub("fake-jwt-123", 1, null));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class, () -> adapter.getEpub("fake-jwt-123", 1, null));
+            assertThrows(AuthorizationException.class, () -> adapter.getEpub("fake-jwt-123", 1, null));
 
             server.enqueue(new MockResponse().setResponseCode(403));
             assertThrows(ApiCallException.class, () -> adapter.getEpub("fake-jwt-123", 1, null));
@@ -132,7 +132,7 @@ public class EpubAdapterTest {
             assertNull(adapter.addEpubEdition("fake-jwt-123", 1, DtoRecord.edition1));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class,
+            assertThrows(AuthorizationException.class,
                     () -> adapter.addEpubEdition("fake-jwt-123", 1, DtoRecord.edition1));
 
             server.enqueue(new MockResponse().setResponseCode(404));
@@ -187,7 +187,7 @@ public class EpubAdapterTest {
             assertThrows(ApiCallException.class, () -> adapter.getEpubsPaged("fake-jwt-123", null));
 
             server.enqueue(new MockResponse().setResponseCode(401));
-            assertThrows(SessionExpiredException.class, () -> adapter.getEpubsPaged("fake-jwt-123", null));
+            assertThrows(AuthorizationException.class, () -> adapter.getEpubsPaged("fake-jwt-123", null));
         } catch (Exception ex) {
             fail(ex.getMessage());
         }

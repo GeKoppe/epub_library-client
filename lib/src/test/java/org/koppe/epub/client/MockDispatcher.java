@@ -74,6 +74,13 @@ public class MockDispatcher extends Dispatcher {
                         default:
                             return new MockResponse().setResponseCode(403);
                     }
+                case "/epubs/download":
+                    switch (request.getMethod()) {
+                        case "GET":
+                            return download(request);
+                        default:
+                            return new MockResponse().setResponseCode(403);
+                    }
                 case "/authors":
                     switch (request.getMethod()) {
                         case "POST":
@@ -85,6 +92,8 @@ public class MockDispatcher extends Dispatcher {
                     switch (request.getMethod()) {
                         case "GET":
                             return getAuthor(request);
+                        case "DELETE":
+                            return deleteAuthor(request);
                         default:
                             return new MockResponse().setResponseCode(403);
                     }
@@ -208,6 +217,7 @@ public class MockDispatcher extends Dispatcher {
         return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(response));
     }
 
+    // #region uplaod
     private MockResponse upload(RecordedRequest r) {
         if (!r.getRequestUrl().queryParameter("upload-guid").equals("123")) {
             return new MockResponse().setResponseCode(400);
@@ -251,6 +261,31 @@ public class MockDispatcher extends Dispatcher {
         return new MockResponse().setResponseCode(400);
     }
 
+    // #region download
+    private MockResponse download(RecordedRequest r) {
+        if (!r.getRequestUrl().queryParameter("download-guid").equals("123")) {
+            return new MockResponse().setResponseCode(400);
+        }
+
+        try {
+            if (r.getRequestUrl().queryParameter("cover") != null
+                    && r.getRequestUrl().queryParameter("cover").equals("true")) {
+                byte[] fileContent = getClass().getClassLoader().getResourceAsStream("epubs/test-cover.png")
+                        .readAllBytes();
+                return new MockResponse().setResponseCode(200).setHeader("Content-Type", "application/octet-stream")
+                        .setHeader("Content-Disposition", "attachment; filename=\"test-cover.png\"")
+                        .setBody(new String(fileContent));
+            } else {
+                byte[] fileContent = getClass().getClassLoader().getResourceAsStream("epubs/test.epub").readAllBytes();
+                return new MockResponse().setResponseCode(200).setHeader("Content-Type", "application/octet-stream")
+                        .setHeader("Content-Disposition", "attachment; filename=\"test.epub\"")
+                        .setBody(new String(fileContent));
+            }
+        } catch (Exception ex) {
+            return new MockResponse().setResponseCode(500);
+        }
+    }
+
     // #region add author
     private MockResponse addAuthor(RecordedRequest r) {
         AuthorDto dto = getBody(r.getBody(), AuthorDto.class);
@@ -292,6 +327,25 @@ public class MockDispatcher extends Dispatcher {
             dto.setGenres(new ArrayList<>());
         }
 
+        return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(dto));
+    }
+
+    // #region delete author
+    private MockResponse deleteAuthor(RecordedRequest r) {
+        AuthorDto dto = null;
+        if (r.getRequestUrl().toString().contains("/1"))
+            dto = DtoRecord.author1;
+        else if (r.getRequestUrl().toString().contains("/2"))
+            dto = DtoRecord.author2;
+        else
+            return new MockResponse().setResponseCode(404);
+
+        if (r.getRequestUrl().queryParameter("with_epubs") != null
+                && r.getRequestUrl().queryParameter("with_epubs").equals("true")) {
+            dto.setEpubs(List.of(DtoRecord.epub1, DtoRecord.epub2));
+        } else {
+            dto.setEpubs(new ArrayList<>());
+        }
         return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(dto));
     }
 

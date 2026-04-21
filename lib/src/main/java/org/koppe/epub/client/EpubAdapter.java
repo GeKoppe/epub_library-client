@@ -20,7 +20,7 @@ import org.koppe.epub.client.exceptions.ForbiddenException;
 import org.koppe.epub.client.exceptions.IllegalFileTypeException;
 import org.koppe.epub.client.exceptions.NotFoundException;
 import org.koppe.epub.client.exceptions.ServerErrorException;
-import org.koppe.epub.client.exceptions.SessionExpiredException;
+import org.koppe.epub.client.exceptions.AuthorizationException;
 import org.koppe.epub.client.exceptions.UnexpectedStatusException;
 import org.koppe.epub.client.http.EpubQueryBuilder;
 import org.koppe.epub.client.http.HttpQuery;
@@ -66,14 +66,14 @@ class EpubAdapter {
      *                                  been given.
      * @throws ApiCallException         If api call itself failed due to an
      *                                  exception.
-     * @throws SessionExpiredException  If session has expired. If you are working
+     * @throws AuthorizationException   If session has expired. If you are working
      *                                  without cache, call
      *                                  {@link EpubClient#refreshLogin(String)}
      *                                  again, otherwise a call to
      *                                  {@link EpubClient#refreshLogin()} suffices.
      */
     protected @Nullable EpubDto addEpub(@NotNull String jwt, @NotNull EpubDto epub)
-            throws IllegalArgumentException, ApiCallException, SessionExpiredException {
+            throws IllegalArgumentException, ApiCallException, AuthorizationException {
         if (epub == null || epub.getTitle() == null || epub.getTitle().isBlank()) {
             logger.info("No valid epub dto given");
             throw new IllegalArgumentException("Invalid epub dto, title is missing");
@@ -102,7 +102,7 @@ class EpubAdapter {
                 | IOException ex) {
             logger.info("Exception occurred in method call");
             throw new ApiCallException(null, ex);
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             logger.info("Session has expired");
             throw ex;
         }
@@ -125,14 +125,14 @@ class EpubAdapter {
      * @return The deleted epub
      * @throws IllegalArgumentException If username or password are missing
      * @throws ApiCallException         If an error occurred during call to the api
-     * @throws SessionExpiredException  If session has expired. If you are working
+     * @throws AuthorizationException   If session has expired. If you are working
      *                                  without cache, call
      *                                  {@link EpubClient#refreshLogin(String)}
      *                                  again, otherwise a call to
      *                                  {@link EpubClient#refreshLogin()} suffices.
      */
     protected @Nullable EpubDto deleteEpub(@NotNull String jwt, long epubId)
-            throws IllegalArgumentException, ApiCallException, SessionExpiredException {
+            throws IllegalArgumentException, ApiCallException, AuthorizationException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("Invalid jwt given");
             throw new IllegalArgumentException("Jwt is missing");
@@ -154,7 +154,7 @@ class EpubAdapter {
         } catch (NotFoundException ex) {
             logger.info("Could not find requested resource");
             return null;
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             logger.info("Session expired or login failed");
             throw ex;
         }
@@ -177,11 +177,11 @@ class EpubAdapter {
      * @param epubId Id of the epub to retrieve
      * @return Retrieved epub or null, if no epub with given id was found
      * @throws IllegalArgumentException If jwt is missing or blank
-     * @throws SessionExpiredException  If the session credentials are invalid
+     * @throws AuthorizationException   If the session credentials are invalid
      * @throws ApiCallException         General api error exception
      */
     protected @Nullable EpubDto getEpub(@NotNull String jwt, long epubId, HttpQuery query)
-            throws IllegalArgumentException, SessionExpiredException, ApiCallException {
+            throws IllegalArgumentException, AuthorizationException, ApiCallException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
             throw new IllegalArgumentException("No jwt given");
@@ -213,7 +213,7 @@ class EpubAdapter {
         } catch (NotFoundException ex) {
             logger.info("Could not find requested resource");
             return null;
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             logger.info("Session expired or login missing");
             throw ex;
         }
@@ -237,12 +237,12 @@ class EpubAdapter {
      * @throws IllegalArgumentException If no username, password, edition or
      *                                  edition.versionName are given
      * @throws NotFoundException        If no epub with given id exists
-     * @throws SessionExpiredException  If the session has expired
+     * @throws AuthorizationException   If the session has expired
      * @throws BadRequestException      If the given edition is invalid
      * @throws ApiCallException         General api error
      */
     protected @Nullable EpubEditionDto addEpubEdition(@NotNull String jwt, long epubId, @NotNull EpubEditionDto edition)
-            throws IllegalArgumentException, NotFoundException, SessionExpiredException, BadRequestException,
+            throws IllegalArgumentException, NotFoundException, AuthorizationException, BadRequestException,
             ApiCallException {
 
         if (jwt == null || jwt.isBlank()) {
@@ -268,7 +268,7 @@ class EpubAdapter {
         } catch (NotFoundException ex) {
             logger.info("Invalid epub id given");
             throw ex;
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             throw ex;
         } catch (BadRequestException ex) {
             throw ex;
@@ -293,11 +293,11 @@ class EpubAdapter {
      * @param jwt   JWT for querying the api
      * @param query Http query
      * @return All epubs matching the specifications
-     * @throws ApiCallException        If an error occurred while querying the api
-     * @throws SessionExpiredException If the session has expired
+     * @throws ApiCallException       If an error occurred while querying the api
+     * @throws AuthorizationException If the session has expired
      */
     protected @Nullable PagedRequestDto<EpubDto> getEpubsPaged(@NotNull String jwt, @Nullable HttpQuery query)
-            throws ApiCallException, SessionExpiredException {
+            throws ApiCallException, AuthorizationException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
             throw new IllegalArgumentException("Jwt missing");
@@ -325,7 +325,7 @@ class EpubAdapter {
                 | ServerErrorException ex) {
             logger.info("Exception occurred during api call", ex);
             throw new ApiCallException("", ex);
-        } catch (SessionExpiredException e) {
+        } catch (AuthorizationException e) {
             logger.info("Session has expired");
             throw e;
         }
@@ -361,7 +361,7 @@ class EpubAdapter {
      *                       existing values on epub in the database.
      * @return Updated epub or null, if epub could not be updated
      * @throws IllegalArgumentException If no jwt or dto is given
-     * @throws SessionExpiredException  If the session has expired
+     * @throws AuthorizationException   If the session has expired
      * @throws BadRequestException      If the request was malformed (i.e.
      *                                  overwriteNulls is true but dto.title is
      *                                  null, as every epub needs a title)
@@ -370,7 +370,7 @@ class EpubAdapter {
      */
     protected @Nullable EpubDto updateEpub(@NotNull String jwt, @NotNull EpubDto dto, long epubId,
             boolean overwriteNulls)
-            throws IllegalArgumentException, SessionExpiredException, BadRequestException, NotFoundException,
+            throws IllegalArgumentException, AuthorizationException, BadRequestException, NotFoundException,
             ApiCallException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
@@ -402,7 +402,7 @@ class EpubAdapter {
                 | ServerErrorException | UnexpectedStatusException | IOException e) {
             logger.info("Exception occurred in api call", e);
             throw new ApiCallException(null, e);
-        } catch (SessionExpiredException ex) {
+        } catch (AuthorizationException ex) {
             logger.info("Session has expired", ex);
             throw ex;
         } catch (BadRequestException ex) {
@@ -435,12 +435,12 @@ class EpubAdapter {
      * @throws IllegalArgumentException If no jwt, upload guid or file is given
      * @throws IllegalFileTypeException If file is not an epub
      * @throws ApiCallException         General wrapper for api exception
-     * @throws SessionExpiredException  if the session has expired
+     * @throws AuthorizationException   if the session has expired
      * @throws BadRequestException      If either an invalid file or invalid upload
      *                                  guid has been given
      */
     public void upload(@NotNull String jwt, @NotNull String uploadGuid, @NotNull File epubFile)
-            throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, SessionExpiredException,
+            throws IllegalArgumentException, IllegalFileTypeException, ApiCallException, AuthorizationException,
             BadRequestException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
@@ -477,7 +477,7 @@ class EpubAdapter {
                 | ServerErrorException | UnexpectedStatusException | IOException e) {
             logger.info("Exception while querying the api", e);
             throw new ApiCallException(e.getMessage(), e);
-        } catch (SessionExpiredException e) {
+        } catch (AuthorizationException e) {
             logger.info("Session has expired");
             throw e;
         } catch (BadRequestException e) {
@@ -506,13 +506,14 @@ class EpubAdapter {
      *                                   meaning the download guid is invalid.
      * @throws ServerErrorException      When the server could not provide the
      *                                   download file.
-     * @throws SessionExpiredException
-     * @throws UnexpectedStatusException
+     * @throws AuthorizationException    If the authorization at the api failed
+     * @throws UnexpectedStatusException If the server responded with an unexpected
+     *                                   status code
      */
     protected @Nullable File download(@NotNull String jwt, @NotNull String downloadGuid,
             @NotNull File downlaodDirectory,
             boolean downloadCover)
-            throws IllegalArgumentException, BadRequestException, ServerErrorException, SessionExpiredException,
+            throws IllegalArgumentException, BadRequestException, ServerErrorException, AuthorizationException,
             UnexpectedStatusException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
@@ -543,7 +544,7 @@ class EpubAdapter {
                     logger.info("Given download guid is invalid");
                     throw new BadRequestException("Invalid download guid", null);
                 case 401:
-                    throw new SessionExpiredException();
+                    throw new AuthorizationException();
                 case 500:
                     logger.info("Server failed to provide download file");
                     throw new ServerErrorException("Server could not prepare download", null);
@@ -563,6 +564,7 @@ class EpubAdapter {
                 throw new IOException(ex);
             }
 
+            logger.debug("Download file created, writing file stream into download file");
             try (InputStream is = response.body().byteStream(); OutputStream os = new FileOutputStream(downloaded)) {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
@@ -570,6 +572,7 @@ class EpubAdapter {
                     os.write(buffer, 0, bytesRead);
                 }
             }
+            logger.info("Successfull wrote body into file " + downloaded);
             return downloaded;
         } catch (IOException ex) {
             // TODO throw sensible exceptions
@@ -615,21 +618,25 @@ class EpubAdapter {
             logger.info("Could not determine a file name, using default");
             fileName = "epub.epub";
         }
-
         logger.debug("Determined file name \"" + fileName + "\"");
-        File dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName);
 
+        String extension = fileName.substring(fileName.lastIndexOf("."));
+        fileName = fileName.substring(0, fileName.lastIndexOf("."));
+
+        File dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + extension);
         if (dl.exists()) {
+            logger.debug("Filename already exists in download folder, adding iterator");
             int iterator = 0;
             while (dl.exists()) {
                 iterator++;
                 if (iterator >= 1000) {
                     throw new IOException("Too many epubs with given name downloaded");
                 }
-                dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + "(" + iterator + ")");
+                dl = new File(downloadDirectory.getAbsolutePath() + "/" + fileName + " (" + iterator + ")" + extension);
             }
         }
         dl.createNewFile();
+        logger.info("File {} created", dl);
 
         return dl;
     }
@@ -643,14 +650,14 @@ class EpubAdapter {
      * @param editionId Epub edition to be deleted
      * @return The deleted epub edition
      * @throws IllegalArgumentException If no jwt is given
-     * @throws SessionExpiredException  If the jwt has expired
+     * @throws AuthorizationException   If the jwt has expired
      * @throws ApiCallException         General exception for all unexpected api
      *                                  responses
      * @throws NotFoundException        If either the epub edition id or the epub
      *                                  with the given id do not exist
      */
     protected @Nullable EpubEditionDto deleteEdition(@NotNull String jwt, long epubId, long editionId)
-            throws IllegalArgumentException, SessionExpiredException, ApiCallException, NotFoundException {
+            throws IllegalArgumentException, AuthorizationException, ApiCallException, NotFoundException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("Invalid jwt given");
             throw new IllegalArgumentException("Missing jwt");
@@ -668,7 +675,7 @@ class EpubAdapter {
         EpubEditionDto deleted = null;
         try {
             deleted = client.executeRequest(builder.build(), EpubEditionDto.class, null, false);
-        } catch (SessionExpiredException e) {
+        } catch (AuthorizationException e) {
             logger.info("Session has expired");
             throw e;
         } catch (BadRequestException | ForbiddenException | UnexpectedStatusException | IOException e) {
