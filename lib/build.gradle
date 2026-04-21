@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'org.koppe.epub.client'
-version = '0.0.2'
+version = '0.0.3'
 description = 'Client library for an epub library application'
 
 repositories {

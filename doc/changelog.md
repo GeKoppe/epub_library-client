@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.0.3
+
+**Type**: Pre-release
+
+**Description**: Secondary test of publishing. This release was published to test implementation in another project. Don't use this!
+
+**Features**:
+
+More author functions have been added.
+
+**Fixes**:
+
+None
+
+**Known Issues**:
+
+- Many (as I said, don't use this.)
+
 ## 0.0.2
 
 **Type**: Pre-release
