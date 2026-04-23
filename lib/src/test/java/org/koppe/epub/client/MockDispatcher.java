@@ -57,6 +57,8 @@ public class MockDispatcher extends Dispatcher {
                             return getEpub(request);
                         case "DELETE":
                             return deleteEpub(request);
+                        case "PATCH":
+                            return updateEpub(request);
                         default:
                             return new MockResponse().setResponseCode(403);
                     }
@@ -347,6 +349,31 @@ public class MockDispatcher extends Dispatcher {
             dto.setEpubs(new ArrayList<>());
         }
         return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(dto));
+    }
+
+    private MockResponse updateEpub(RecordedRequest r) {
+        EpubDto dto = getBody(r.getBody(), EpubDto.class);
+        boolean overwriteNulls = r.getRequestUrl().queryParameter("overwrite_nulls") != null
+                && r.getRequestUrl().queryParameter("overwrite_nulls").equals("true");
+
+        EpubDto original = r.getRequestUrl().toString().contains("/1") ? DtoRecord.epub1 : DtoRecord.epub2;
+        if (dto == null) {
+            return new MockResponse().setResponseCode(400);
+        }
+
+        if ((dto.getTitle() == null || dto.getTitle().isBlank()) && overwriteNulls) {
+            return new MockResponse().setResponseCode(400);
+        }
+
+        dto.setId(original.getId());
+        dto.setAuthors(original.getAuthors());
+        dto.setEditions(original.getEditions());
+        dto.setGenres(original.getGenres());
+        dto.setSeries(original.getSeries());
+        dto.setUploadDate(original.getPublishDate());
+        dto.setTags(original.getTags());
+
+        return new MockResponse().setResponseCode(200).setBody(mapper.writeValueAsString(original));
     }
 
     // #region get body

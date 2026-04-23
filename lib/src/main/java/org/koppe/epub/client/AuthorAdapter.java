@@ -377,25 +377,27 @@ class AuthorAdapter {
 
     // #region add epub to author
     /**
+     * Adds epub with given id to author with given id.
      * 
-     * @param jwt
-     * @param authorId
-     * @param epubId
-     * @return
-     * @throws IllegalArgumentException
-     * @throws AuthorizationException
-     * @throws ApiCallException
+     * @param jwt      JWT to authenticate at the api with.
+     * @param authorId Id of the author to add the epub to.
+     * @param epubId   Id of the epub to add to the author
+     * @return The updated author or null, if epub could not be added to author
+     * @throws IllegalArgumentException No jwt given.
+     * @throws AuthorizationException   Could not authorize at the api.
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     * @throws NotFoundException        Author with given id does not exist
      */
     protected @Nullable AuthorDto addEpubToAuthor(@NotNull String jwt, long authorId, long epubId)
-            throws IllegalArgumentException, AuthorizationException, ApiCallException {
+            throws IllegalArgumentException, AuthorizationException, ApiCallException, NotFoundException {
         if (jwt == null || jwt.isBlank()) {
             logger.info("No jwt given");
             throw new IllegalArgumentException("Missing jwt");
         }
 
         logger.debug("Instantiating request to add epub with id {} to author with id {}", authorId, epubId);
-        IdDto id = new IdDto();
-        id.setId(epubId);
+        IdDto id = new IdDto(epubId);
 
         Request.Builder builder = new Request.Builder()
                 .put(RequestBody.create(mapper.writeValueAsString(id), EpubClient.APPLICATION_JSON))
@@ -415,12 +417,13 @@ class AuthorAdapter {
             return null;
         } catch (NotFoundException ex) {
             logger.info("Author with given id does not exist");
-            return null;
+            throw ex;
         } catch (AuthorizationException ex) {
             logger.info("Authorization at the api failed", ex);
             throw ex;
         }
 
+        logger.info("Successfully added epub to author");
         if (dto != null) {
             client.cacheValue(CacheType.AUTHORS, (Long) authorId, dto);
         }

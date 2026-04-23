@@ -238,6 +238,18 @@ public class EpubClientCommunicationTest {
         assertEquals(2, response.getContent().size());
     }
 
+    @Test
+    public void testUpdateEpub() throws IllegalArgumentException, AuthorizationException, BadRequestException, NotFoundException, ApiCallException, CacheMissException {
+        server.setDispatcher(new MockDispatcher());
+        EpubClient client = EpubClientFactory.newCredentialCacheClient(server.url("/").toString());
+
+        EpubDto dto = new EpubDto();
+        assertThrows(NotFoundException.class, () -> client.updateEpub("admin", "admin", 5, dto, false));
+        assertThrows(IllegalArgumentException.class, () -> client.updateEpub(1, null, false));
+        assertThrows(BadRequestException.class, () -> client.updateEpub(1, dto, true));
+        assertNotNull(client.updateEpub(1L, dto, false));
+    }
+
     // #region execute request
     @Test
     public void testExecuteRequest() {

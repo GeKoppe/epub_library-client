@@ -24,4 +24,16 @@ public class TagDto {
     @Include
     @lombok.ToString.Include
     private Long id;
+    /**
+     * Name of the tag
+     */
+    @Include
+    @lombok.ToString.Include
+    private String name;
+    /**
+     * Colour of the tag
+     */
+    @Include
+    @lombok.ToString.Include
+    private String colour;
 }

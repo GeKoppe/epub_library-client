@@ -1,5 +1,6 @@
 package org.koppe.epub.client.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
@@ -7,6 +8,7 @@ import lombok.Data;
  * other, for example adding an epub to an author.
  */
 @Data
+@AllArgsConstructor
 public class IdDto {
     private Long id;
 }

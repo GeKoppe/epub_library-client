@@ -13,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 import org.koppe.epub.client.cache.CacheType;
 import org.koppe.epub.client.dto.EpubDto;
 import org.koppe.epub.client.dto.EpubEditionDto;
+import org.koppe.epub.client.dto.IdDto;
 import org.koppe.epub.client.dto.PagedRequestDto;
 import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
@@ -581,6 +582,7 @@ class EpubAdapter {
         }
     }
 
+    // #region create download file
     /**
      * Creates the file for the download. Determines file name and file type from
      * the given response, creates the new file and returns it.
@@ -694,5 +696,64 @@ class EpubAdapter {
         }
 
         return deleted;
+    }
+
+    // #region add tag
+    /**
+     * Adds tag with given id to epub with given id.
+     * 
+     * @param jwt    JWT to authenticate at the api with.
+     * @param epubId Id of the epub to add the tag to.
+     * @param tagId  Id of the tag to add to the epub
+     * @return The updated epub or null, if tag is already associated with the given
+     *         author.
+     * @throws IllegalArgumentException If no jwt is given.
+     * @throws BadRequestException      If no tag with given id exists.
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws NotFoundException        If no epub with given id exists.
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     */
+    protected @Nullable EpubDto addTagToEpub(@NotNull String jwt, long epubId, long tagId)
+            throws IllegalArgumentException, BadRequestException, AuthorizationException, NotFoundException,
+            ApiCallException {
+        if (jwt == null || jwt.isBlank()) {
+            logger.info("No jwt given");
+            throw new IllegalArgumentException("No jwt given");
+        }
+
+        logger.info("Adding tag {} to epub {}", "" + epubId, "" + tagId);
+        Request.Builder builder = new Request.Builder()
+                .url(String.format("%s/epubs/%s/tags", client.url(), "" + epubId))
+                .put(RequestBody.create(mapper.writeValueAsString(new IdDto(tagId)), EpubClient.APPLICATION_JSON));
+
+        client.addHeaders(builder, jwt, EpubClient.APPLICATION_JSON_STRING, EpubClient.APPLICATION_JSON_STRING);
+        logger.debug("Initialised request, executing now");
+
+        EpubDto dto = null;
+        try {
+            dto = client.executeRequest(builder.build(), EpubDto.class, null, false);
+        } catch (ForbiddenException | ServerErrorException | UnexpectedStatusException | IOException e) {
+            logger.info("Unexpected response from api");
+            throw new ApiCallException(null, e);
+        } catch (AuthorizationException ex) {
+            logger.info("Could not authorize at api");
+            throw ex;
+        } catch (BadRequestException ex) {
+            logger.info("Tag with given id does not exist");
+            throw new BadRequestException("Tag with id " + tagId + " does not exist", ex);
+        } catch (NotFoundException ex) {
+            logger.info("Epub with given id does not exist");
+            throw ex;
+        }
+
+        if (dto == null) {
+            logger.info("Tag already associated with given epub");
+            return null;
+        }
+        logger.info("Successfully added tag to epub");
+        client.cacheValue(CacheType.EPUBS, dto.getId(), dto);
+
+        return dto;
     }
 }

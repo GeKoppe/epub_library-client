@@ -20,6 +20,7 @@ import org.koppe.epub.client.dto.CredentialDto;
 import org.koppe.epub.client.dto.EpubDto;
 import org.koppe.epub.client.dto.EpubEditionDto;
 import org.koppe.epub.client.dto.PagedRequestDto;
+import org.koppe.epub.client.dto.TagDto;
 import org.koppe.epub.client.dto.UserDto;
 import org.koppe.epub.client.exceptions.ApiCallException;
 import org.koppe.epub.client.exceptions.BadRequestException;
@@ -154,6 +155,10 @@ public class EpubClient {
      * Adapter for author operation
      */
     private AuthorAdapter authors;
+    /**
+     * Adapter for tags
+     */
+    private TagAdapter tags;
 
     // #region constructors
     /**
@@ -892,6 +897,89 @@ public class EpubClient {
         return epubs.download(jwt, downloadGuid, downloadDirectory, downloadCover);
     }
 
+    // #region add tag to epub
+    /**
+     * Adds tag with given id to epub with given id.
+     * 
+     * @param username Username to authenticate at the api with.
+     * @param password Password to authenticate at the api with.
+     * @param epubId   Id of the epub to add the tag to.
+     * @param tagId    Id of the tag to add to the epub.
+     * @return Updated epub or null, if tag is already associated with epub.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws BadRequestException      If no tag with given id does not exist.
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws NotFoundException        If no epub with given id does not exist.
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     */
+    public @Nullable EpubDto addTagToEpub(@NotNull String username, @NotNull String password, long epubId, long tagId)
+            throws IllegalArgumentException, BadRequestException, AuthorizationException, NotFoundException,
+            ApiCallException {
+        return addTagToEpub(getNewJwt(username, password), epubId, tagId);
+    }
+
+    /**
+     * Adds tag with given id to epub with given id.
+     * 
+     * @param epubId Id of the epub to add the tag to.
+     * @param tagId  Id of the tag to add to the epub.
+     * @return Updated epub or null, if tag is already associated with epub.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws BadRequestException      If no tag with given id does not exist.
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws NotFoundException        If no epub with given id does not exist.
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     */
+    public @Nullable EpubDto addTagToEpub(long epubId, long tagId) throws IllegalArgumentException, BadRequestException,
+            AuthorizationException, NotFoundException, ApiCallException, CacheMissException {
+        return addTagToEpub(getCurrentJwt(), epubId, tagId);
+    }
+
+    /**
+     * Adds tag with given id to epub with given id.
+     * 
+     * @param jwt    JWT to authenticate at the api with.
+     * @param epubId Id of the epub to add the tag to.
+     * @param tagId  Id of the tag to add to the epub.
+     * @return Updated epub or null, if tag is already associated with epub.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws BadRequestException      If no tag with given id does not exist.
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws NotFoundException        If no epub with given id does not exist.
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     */
+    private @Nullable EpubDto addTagToEpub(@NotNull String jwt, long epubId, long tagId)
+            throws IllegalArgumentException,
+            BadRequestException, AuthorizationException, NotFoundException, ApiCallException {
+        if (epubs == null)
+            epubs = new EpubAdapter(this);
+        return epubs.addTagToEpub(jwt, epubId, tagId);
+    }
+    // #endregion add tag to epub
+
+    public @Nullable EpubDto updateEpub(@NotNull String username, @NotNull String password, long epubId,
+            @NotNull EpubDto updated, boolean overwriteNulls) throws IllegalArgumentException, AuthorizationException,
+            BadRequestException, NotFoundException, ApiCallException {
+        return updateEpub(getNewJwt(username, password), updated, epubId, overwriteNulls);
+    }
+
+    public @Nullable EpubDto updateEpub(long epubId, @NotNull EpubDto updated, boolean overwriteNulls)
+            throws IllegalArgumentException, AuthorizationException, BadRequestException, NotFoundException,
+            ApiCallException, CacheMissException {
+        return updateEpub(getCurrentJwt(), updated, epubId, overwriteNulls);
+    }
+
+    public @Nullable EpubDto updateEpub(@NotNull String jwt, @NotNull EpubDto updated, long epubId,
+            boolean overwriteNulls) throws IllegalArgumentException, AuthorizationException, BadRequestException,
+            NotFoundException, ApiCallException {
+        if (epubs == null)
+            epubs = new EpubAdapter(this);
+        return epubs.updateEpub(jwt, updated, epubId, overwriteNulls);
+    }
+
     // #region delete epub edition
     /**
      * Deletes the epub edition with the given edition id
@@ -1201,6 +1289,190 @@ public class EpubClient {
             authors = new AuthorAdapter(this);
         return authors.updateAuthor(jwt, dto, authorId, overwriteNulls);
     }
+
+    // #endregion update author
+
+    // #region add epub to author
+    /**
+     * Adds epub with given id to author with given id.
+     * 
+     * @param username Username to authenticate at the api
+     * @param password Password to authenticate at the api.
+     * @param authorId Id of the author to add the epub to.
+     * @param epubId   Id of the epub to add to the author.
+     * @return The updated author or null, if epub was already associated with the
+     *         author or epub does not exist.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws AuthorizationException   If authorization at the api failed
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     * @throws NotFoundException        If no author with given id exists.
+     */
+    public @Nullable AuthorDto addEpubToAuthor(@NotNull String username, @NotNull String password, long authorId,
+            long epubId) throws IllegalArgumentException, AuthorizationException, ApiCallException, NotFoundException {
+        return addEpubToAuthor(getNewJwt(username, password), authorId, epubId);
+    }
+
+    /**
+     * Adds epub with given id to author with given id. Requires credentials to be
+     * cached in this client.
+     *
+     * @param authorId Id of the author to add the epub to.
+     * @param epubId   Id of the epub to add to the author.
+     * @return The updated author or null, if epub was already associated with the
+     *         author or epub does not exist.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws AuthorizationException   If authorization at the api failed
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     * @throws NotFoundException        If no author with given id exists.
+     */
+    public @Nullable AuthorDto addEpubToAuthor(long authorId, long epubId) throws IllegalArgumentException,
+            AuthorizationException, ApiCallException, NotFoundException, CacheMissException {
+        return addEpubToAuthor(getCurrentJwt(), authorId, epubId);
+    }
+
+    /**
+     * Adds epub with given id to author with given id.
+     * 
+     * @param jwt      JWT to authenticate at the api with.
+     * @param authorId Id of the author to add the epub to.
+     * @param epubId   Id of the epub to add to the author.
+     * @return The updated author or null, if epub was already associated with the
+     *         author or epub does not exist.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws AuthorizationException   If authorization at the api failed
+     * @throws ApiCallException         General wrapper for all unexpected responses
+     *                                  from the api.
+     * @throws NotFoundException        If no author with given id exists.
+     */
+    private @Nullable AuthorDto addEpubToAuthor(@NotNull String jwt, long authorId, long epubId)
+            throws IllegalArgumentException, AuthorizationException, ApiCallException, NotFoundException {
+        if (authors == null)
+            authors = new AuthorAdapter(this);
+        return authors.addEpubToAuthor(jwt, authorId, epubId);
+    }
+    // #endregion add epub to author
+
+    // #region add tag
+    /**
+     * Creates a new tag with given name and colour. Name cannot be null. If name
+     * equals name of an existing tag, null will be returned.
+     * 
+     * @param username  Name of the user to authorize at the api with
+     * @param password  Password of the user to authorize at the api with
+     * @param tagName   Name of the new tag
+     * @param tagColour Colour of the new tag. Defaults to blank
+     * @return The newly created tag or null, if a tag with the given name already
+     *         exists.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws BadRequestException      Won't happen
+     * @throws ApiCallException         Wrapper for all unexpected api exceptions.
+     * @throws AuthorizationException   If authorization at the api failed.
+     */
+    public @Nullable TagDto addTag(@NotNull String username, @NotNull String password, @NotNull String tagName,
+            @Nullable String tagColour)
+            throws IllegalArgumentException, BadRequestException, ApiCallException, AuthorizationException {
+        return addTag(getNewJwt(username, password), tagName, tagColour);
+    }
+
+    /**
+     * Creates a new tag with given name and colour. Name cannot be null. If name
+     * equals name of an existing tag, null will be returned. Needs cached
+     * credentials.
+     * 
+     * @param tagName   Name of the new tag
+     * @param tagColour Colour of the new tag. Defaults to blank
+     * @return The newly created tag or null, if a tag with the given name already
+     *         exists.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws BadRequestException      Won't happen
+     * @throws ApiCallException         Wrapper for all unexpected api exceptions.
+     * @throws AuthorizationException   If authorization at the api failed
+     * @throws CacheMissException       If no credentials are stored in the cache..
+     */
+    public @Nullable TagDto addTag(@NotNull String tagName, @Nullable String tagColour) throws IllegalArgumentException,
+            BadRequestException, ApiCallException, AuthorizationException, CacheMissException {
+        return addTag(getCurrentJwt(), tagName, tagColour);
+    }
+
+    /**
+     * Creates a new tag with given name and colour. Name cannot be null. If name
+     * equals name of an existing tag, null will be returned.
+     * 
+     * @param jwt       Jwt to authorize at the api with.
+     * @param tagName   Name of the new tag
+     * @param tagColour Colour of the new tag. Defaults to blank
+     * @return The newly created tag or null, if a tag with the given name already
+     *         exists.
+     * @throws IllegalArgumentException If username or password are missing
+     * @throws BadRequestException      Won't happen
+     * @throws ApiCallException         Wrapper for all unexpected api exceptions.
+     * @throws AuthorizationException   If authorization at the api failed.
+     */
+    private @Nullable TagDto addTag(@NotNull String jwt, @NotNull String tagName, @Nullable String tagColour)
+            throws IllegalArgumentException, BadRequestException, ApiCallException, AuthorizationException {
+        if (tags == null)
+            tags = new TagAdapter(this);
+        return tags.createTag(jwt, tagName, tagColour);
+    }
+    // #endregion add tag
+
+    // #region delete tag
+    /**
+     * Deletes tag with given id.
+     * 
+     * @param username Username to authorize at the api with
+     * @param password Password to authorize at the api with.
+     * @param tagId    Id of the tag to be deleted
+     * @return The deleted tag or null, if no tag with that id exists.
+     * @throws IllegalArgumentException If username or password are missing or
+     *                                  incorrect
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws ApiCallException         General wrapper for all unexpected status
+     *                                  codes the api might return.
+     */
+    public @Nullable TagDto deleteTag(@NotNull String username, @NotNull String password, long tagId)
+            throws IllegalArgumentException, AuthorizationException, ApiCallException {
+        return deleteTag(getNewJwt(username, password), tagId);
+    }
+
+    /**
+     * Deletes tag with given id. Requires cached credentials.
+     * 
+     * @param tagId Id of the tag to be deleted
+     * @return The deleted tag or null, if no tag with that id exists.
+     * @throws IllegalArgumentException If username or password are missing or
+     *                                  incorrect
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws ApiCallException         General wrapper for all unexpected status
+     *                                  codes the api might return.
+     * @throws CacheMissException       If no credentials are cached in this client.
+     */
+    public @Nullable TagDto deleteTag(long tagId)
+            throws IllegalArgumentException, AuthorizationException, ApiCallException, CacheMissException {
+        return deleteTag(getCurrentJwt(), tagId);
+    }
+
+    /**
+     * Deletes tag with given id.
+     * 
+     * @param jwt   Jwt to authorize at the api with.
+     * @param tagId Id of the tag to be deleted
+     * @return The deleted tag or null, if no tag with that id exists.
+     * @throws IllegalArgumentException If username or password are missing or
+     *                                  incorrect
+     * @throws AuthorizationException   If authorization at the api failed.
+     * @throws ApiCallException         General wrapper for all unexpected status
+     *                                  codes the api might return.
+     */
+    private @Nullable TagDto deleteTag(@NotNull String jwt, long tagId)
+            throws IllegalArgumentException, AuthorizationException, ApiCallException {
+        if (tags == null)
+            tags = new TagAdapter(this);
+        return tags.deleteTag(jwt, tagId);
+    }
+    // #endregion delete tag
 
     // #region register cache
     /**

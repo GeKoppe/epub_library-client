@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.0.4
+
+**Type**: Pre-release
+
+**Description**: Don't use this!
+
+**Features**:
+
+Tags:
+
+- Added add tag action
+- Added delete tag action
+
+Epubs:
+
+- Added action to add tag to epub
+
+Authors:
+
+- Added action to add epub to author
+
+**Fixes**:
+
+None
+
+**Known Issues**:
+
+- Many (as I said, don't use this.)
+
+
 ## 0.0.3
 
 **Type**: Pre-release
